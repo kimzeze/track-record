@@ -33,6 +33,9 @@ on:
       TARGET_TOKEN:
         description: "vault repo write 권한 PAT"
         required: true
+      SLACK_WEBHOOK_URL:
+        description: "옵션 — webhook 있으면 PASS/SKIP 알림 전송"
+        required: false
 
 jobs:
   curate:
@@ -82,6 +85,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TARGET_REPO: ${{ inputs.target_repo }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}

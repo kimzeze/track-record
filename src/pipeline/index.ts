@@ -6,6 +6,7 @@ import { matchSkills } from "../curator/skill-matcher.js";
 import { judgeThreshold } from "../curator/threshold-judge.js";
 import { getOctokit } from "../github/client.js";
 import { fetchPRContext } from "../github/pr-context.js";
+import { sendSlackPass, sendSlackSkip } from "../slack/client.js";
 import { logger } from "../utils/logger.js";
 import { getVaultRepo } from "../vault/client.js";
 import { ensureRootReadme, ensureUserIndex } from "../vault/initializer.js";
@@ -51,6 +52,9 @@ export async function runPipeline(config: Config): Promise<void> {
   logger.info("threshold judgement", judgement);
   if (!judgement.pass) {
     logger.info("임계 미달 → SKIP");
+    if (config.slackWebhookUrl) {
+      await sendSlackSkip(config.slackWebhookUrl, pr, judgement, config.repoName);
+    }
     return;
   }
 
@@ -84,4 +88,8 @@ export async function runPipeline(config: Config): Promise<void> {
     sha: existing.sha,
   });
   logger.info("vault push 완료", { path, action: decision.action });
+
+  if (config.slackWebhookUrl) {
+    await sendSlackPass(config.slackWebhookUrl, pr, entry, config.targetRepo, config.repoName);
+  }
 }

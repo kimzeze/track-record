@@ -14,6 +14,7 @@ const envSchema = z.object({
   DIFF_TOKEN_BUDGET: z.string().default("80000"),
   EXCLUDE_PATTERNS: z.string().default(""),
   TARGET_REPO_PATH: z.string().optional(),
+  SLACK_WEBHOOK_URL: z.string().optional(),
 });
 
 export function loadConfig(): Config {
@@ -42,5 +43,6 @@ export function loadConfig(): Config {
     diffTokenBudget: parseInt(env.DIFF_TOKEN_BUDGET, 10),
     excludePatterns: env.EXCLUDE_PATTERNS.split(",").map((s) => s.trim()).filter(Boolean),
     targetRepoPath: env.TARGET_REPO_PATH ?? process.cwd(),
+    slackWebhookUrl: env.SLACK_WEBHOOK_URL || undefined,
   };
 }

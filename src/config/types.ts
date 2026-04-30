@@ -15,4 +15,6 @@ export interface Config {
   excludePatterns: string[];
 
   targetRepoPath: string;
+
+  slackWebhookUrl?: string;
 }
