@@ -1,0 +1,23 @@
+# 이 파일을 대상 레포의 .github/workflows/track-record.yml 에 복사하세요.
+# 필요한 시크릿: ANTHROPIC_API_KEY, TARGET_TOKEN
+
+name: Track Record
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  curate:
+    if: github.event.pull_request.merged == true
+    uses: kimzeze/track-record/.github/workflows/curate.yml@main
+    with:
+      target_repo: "aptimizer-co/track-record-vault"
+      # 옵션 — 기본값 쓰려면 생략
+      # model_judge: "claude-haiku-4-5"
+      # model_builder: "claude-sonnet-4-6"
+      # diff_token_budget: 80000
+      exclude_patterns: "pnpm-lock.yaml,*.test.ts,*.test.tsx,*.stories.tsx,*.snap"
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}

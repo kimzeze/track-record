@@ -1,0 +1,94 @@
+name: Track Record Curator
+
+on:
+  workflow_call:
+    inputs:
+      target_repo:
+        description: "vault repo (예: aptimizer-co/track-record-vault)"
+        required: true
+        type: string
+      model_judge:
+        description: "1차 임계 판정 모델"
+        required: false
+        type: string
+        default: "claude-haiku-4-5"
+      model_builder:
+        description: "entry 작성·머지 모델"
+        required: false
+        type: string
+        default: "claude-sonnet-4-6"
+      diff_token_budget:
+        description: "PR diff 토큰 한도 (초과 시 메타데이터 모드로 폴백)"
+        required: false
+        type: number
+        default: 80000
+      exclude_patterns:
+        description: "분석 제외 패턴 (콤마 구분, 예: pnpm-lock.yaml,*.test.ts)"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      TARGET_TOKEN:
+        description: "vault repo write 권한 PAT"
+        required: true
+
+jobs:
+  curate:
+    name: "Track Record Curate"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout track-record
+        uses: actions/checkout@v4
+        with:
+          repository: kimzeze/track-record
+          ref: main
+          path: curator
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          path: target
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        working-directory: curator
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: curator
+        run: pnpm build
+
+      - name: Run Curator
+        working-directory: curator
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}
+          TARGET_REPO: ${{ inputs.target_repo }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          MODEL_JUDGE: ${{ inputs.model_judge }}
+          MODEL_BUILDER: ${{ inputs.model_builder }}
+          DIFF_TOKEN_BUDGET: ${{ inputs.diff_token_budget }}
+          EXCLUDE_PATTERNS: ${{ inputs.exclude_patterns }}
+          TARGET_REPO_PATH: ${{ github.workspace }}/target
+        run: node dist/index.js

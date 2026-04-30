@@ -1,0 +1,20 @@
+name: 이슈 등록
+description: 버그·제안·질문
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 종류
+      options:
+        - 버그
+        - 기능 제안
+        - 질문
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: 상세
+      description: 재현 절차, 기대 동작, 실제 동작
+    validations:
+      required: true
