@@ -57,21 +57,32 @@ senior-reviewer와 동일 패턴:
     {project_name}.md       ← 카테고리별 AI 동적 태깅 항목들
 ```
 
-### md 파일 구조 (예시)
+### md 파일 구조 (예시) — 4문장 STAR 응축형
 
 ```markdown
 # {project_name}
 
-## Performance > React Server Components
-- [PR #123] App Router 마이그레이션으로 초기 번들 280KB → 120KB 감축
-  - 기술: Next.js RSC, dynamic import
-  - diff 요약: ...
+## Performance > Caching
+### Turborepo Remote Cache로 CI 62% 단축
+[PR #102](https://github.com/aptimizer-co/my-app/pull/102) · 2026-03-15 · `Turborepo` `GitHub Actions`
+
+모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목. Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 `turbo.json` 자산 재사용 가능한 remote cache 채택. 도입 1주 측정 시 CI 8분 → 3분(62%↓), 캐시 히트율 73%, 팀 머지 throughput 주당 22 → 31건. 빌드 결정성(타임스탬프 제거)이 캐시 안정성의 선결조건임을 첫 주 무효화 사고로 학습.
 
 ## DX > Build Tooling
-- ...
+### ...
 ```
 
-각 항목 메타: 레포명, PR 번호·URL, diff 요약, 기술 스택 태그, 성과 서술
+**4문장 STAR 매핑:**
+1. **문제** — 상황 + 부족함 (정량 1개 가능 시)
+2. **결정** — 대안 + 트레이드오프 ("X 대신 Y")
+3. **결과** — 구현 핵심 + 정량 임팩트
+4. **학습** *(선택)* — 회고 / 한계 / 후속
+
+**길이 룰**: 최소 2문장, 표준 3문장, 최대 4문장. 절대 5문장 이상 금지.
+
+**메타 라인 포맷**: `[PR #N](url) · YYYY-MM-DD · \`stack1\` \`stack2\``
+
+**추측 허용**: 코드/diff/PR 메타에 닿아 있는 합리적 추정 OK. 무에서 만든 할루시네이션 금지. 정량 수치는 PR/diff/commit에 명시된 것만 인용, 없으면 정성 서술로 대체.
 
 ---
 
@@ -123,3 +134,12 @@ senior-reviewer와 동일 패턴:
 | 사람 식별자 | PR 작성자 GitHub username 자동 |
 | 저장 정보 깊이 | 레포명·PR 번호·diff 요약 모두 보존 |
 | 임계 기준 | 테크 깊이 OR 임팩트 — 한쪽이라도 강하면 통과 |
+| Entry 형식 | 4문장 STAR 응축형 + 메타 1줄 (최소 2 / 표준 3 / 최대 4문장) |
+| 추측 허용 | PR 메타에 닿아 있는 합리적 추정 OK, 무에서 만든 할루시네이션 금지 |
+| 베스트 프랙티스 시작 셋 | `prompts/stacks/vercel-react-best-practices.md` 1개 (관찰 후 확장) |
+| vault repo 초기화 | 첫 push 시 README + 폴더 + 사람별 인덱스 자동 생성 |
+| 거대 PR 토큰 전략 | 토큰 예산 80k 기본 + 4단계 폴백 (정상 → 메타데이터 모드 → skip) |
+| vault 인증 | PAT 단일 옵션 (`TARGET_TOKEN` secret) |
+| 모델 계단 | judge=haiku-4.5, builder/merger=sonnet-4.6 (caller가 `model_judge`/`model_builder` input으로 오버라이드 가능) |
+| Anthropic prompt caching | system prompt + 베스트 프랙티스 마크다운에 cache_control 적용 |
+| senior-reviewer와 관계 | 독립 레포 유지 (트리거·출력·관점·권한 모두 다름, 합쳐도 비용 절감 없음) |
