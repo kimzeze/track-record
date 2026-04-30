@@ -66,7 +66,13 @@ senior-reviewer와 동일 패턴:
 ### Turborepo Remote Cache로 CI 62% 단축
 [PR #102](https://github.com/aptimizer-co/my-app/pull/102) · 2026-03-15 · `Turborepo` `GitHub Actions`
 
-모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목. Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 `turbo.json` 자산 재사용 가능한 remote cache 채택. 도입 1주 측정 시 CI 8분 → 3분(62%↓), 캐시 히트율 73%, 팀 머지 throughput 주당 22 → 31건. 빌드 결정성(타임스탬프 제거)이 캐시 안정성의 선결조건임을 첫 주 무효화 사고로 학습.
+모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목.
+
+Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 `turbo.json` 자산 재사용 가능한 remote cache 채택.
+
+도입 1주 측정 시 CI 8분 → 3분(62%↓), 캐시 히트율 73%, 팀 머지 throughput 주당 22 → 31건.
+
+빌드 결정성(타임스탬프 제거)이 캐시 안정성의 선결조건임을 첫 주 무효화 사고로 학습.
 
 ## DX > Build Tooling
 ### ...

@@ -53,9 +53,19 @@
 
 ## 본문 (4문장 STAR) 작성 예시
 
+⚠️ **각 문장은 빈 줄로 분리해 한 단락씩 차지하게 작성하라**. 한 단락에 빽빽이 몰아쓰지 마라.
+
 ```
-모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목. Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 turbo.json 자산 재사용 가능한 remote cache 채택. 도입 1주 측정 시 CI 8분 → 3분(62%↓), 캐시 히트율 73%, 팀 머지 throughput 주당 22 → 31건. 빌드 결정성(타임스탬프 제거)이 캐시 안정성의 선결조건임을 첫 주 무효화 사고로 학습.
+모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목.
+
+Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 turbo.json 자산 재사용 가능한 remote cache 채택.
+
+도입 1주 측정 시 CI 8분 → 3분(62%↓), 캐시 히트율 73%, 팀 머지 throughput 주당 22 → 31건.
+
+빌드 결정성(타임스탬프 제거)이 캐시 안정성의 선결조건임을 첫 주 무효화 사고로 학습.
 ```
+
+JSON으로 출력할 때는 각 문장 사이에 `\n\n` (실제 newline 2개)를 넣어라. 단순 한 줄로 이어붙이지 마라.
 
 ## 출력 (JSON only)
 
@@ -64,8 +74,10 @@
   "category": "Performance > Caching",
   "headline": "Turborepo Remote Cache로 CI 62% 단축",
   "metaLine": "[PR #102](https://github.com/aptimizer-co/my-app/pull/102) · 2026-03-15 · `Turborepo` `GitHub Actions`",
-  "body": "모노레포 18 패키지 규모에서… 학습."
+  "body": "모노레포 18 패키지 규모에서… 병목.\n\nNx 마이그레이션은… 채택.\n\n도입 1주 측정 시… 31건.\n\n빌드 결정성… 학습."
 }
 ```
+
+`body` 의 `\n\n` 는 필수다. 단일 줄에 모든 문장을 이어붙이면 vault에서 가독성이 크게 떨어진다.
 
 JSON 외 다른 텍스트는 절대 출력하지 마라.
