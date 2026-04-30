@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import type { Config } from "./types.js";
 
 const envSchema = z.object({
@@ -17,7 +17,18 @@ const envSchema = z.object({
 });
 
 export function loadConfig(): Config {
-  const env = envSchema.parse(process.env);
+  let env: z.infer<typeof envSchema>;
+  try {
+    env = envSchema.parse(process.env);
+  } catch (e) {
+    if (e instanceof ZodError) {
+      const issues = e.errors
+        .map((err) => `${err.path.join(".")}: ${err.message}`)
+        .join("; ");
+      throw new Error(`환경변수 검증 실패 — ${issues}`);
+    }
+    throw e;
+  }
   return {
     githubToken: env.GITHUB_TOKEN,
     repoOwner: env.REPO_OWNER,
