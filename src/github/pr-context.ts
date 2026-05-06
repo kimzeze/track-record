@@ -3,11 +3,12 @@ import {
   diffToText,
   estimateTokens,
   isExcluded,
+  prioritizeFiles,
   type ParsedDiff,
   type ParsedFile,
 } from "./diff-parser.js";
 
-export type PRMode = "full" | "metadata-only" | "skip";
+export type PRMode = "full" | "truncated" | "metadata-only" | "skip";
 
 export interface PRContext {
   owner: string;
@@ -28,6 +29,8 @@ export interface PRContext {
 
   mode: PRMode;
   diffTokens: number;
+  patchIncludedCount: number;
+  patchOmittedCount: number;
 }
 
 export async function fetchPRContext(
@@ -69,10 +72,33 @@ export async function fetchPRContext(
   });
   const commitMessages = commits.map((c) => c.commit.message);
 
-  const diffText = diffToText(parsedFiles);
-  const diffTokens = estimateTokens(diffText);
+  const fullDiffTokens = estimateTokens(diffToText(parsedFiles));
 
-  const mode: PRMode = diffTokens > budgetTokens ? "metadata-only" : "full";
+  let mode: PRMode;
+  let finalFiles: ParsedFile[];
+  let includedCount: number;
+  let omittedCount: number;
+
+  if (fullDiffTokens <= budgetTokens) {
+    mode = "full";
+    finalFiles = parsedFiles;
+    includedCount = parsedFiles.filter((f) => f.patch).length;
+    omittedCount = 0;
+  } else {
+    const prioritized = prioritizeFiles(parsedFiles, budgetTokens);
+    if (prioritized.includedCount === 0) {
+      // 헤더만으로도 예산 초과 — patch 전부 제거
+      mode = "metadata-only";
+      finalFiles = parsedFiles.map((f) => ({ ...f, patch: undefined, patchOmitted: true }));
+      includedCount = 0;
+      omittedCount = parsedFiles.filter((f) => f.patch).length;
+    } else {
+      mode = "truncated";
+      finalFiles = prioritized.files;
+      includedCount = prioritized.includedCount;
+      omittedCount = prioritized.excludedCount;
+    }
+  }
 
   return {
     owner,
@@ -87,12 +113,14 @@ export async function fetchPRContext(
     deletions: pr.deletions ?? 0,
     changedFilesCount: parsedFiles.length,
     parsedDiff: {
-      files: parsedFiles,
+      files: finalFiles,
       totalAdditions: parsedFiles.reduce((a, f) => a + f.additions, 0),
       totalDeletions: parsedFiles.reduce((a, f) => a + f.deletions, 0),
     },
     commitMessages,
     mode,
-    diffTokens,
+    diffTokens: fullDiffTokens,
+    patchIncludedCount: includedCount,
+    patchOmittedCount: omittedCount,
   };
 }
