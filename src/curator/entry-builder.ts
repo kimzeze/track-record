@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildCachedSystem } from "../anthropic/client.js";
 import { callJsonModel } from "../anthropic/json-call.js";
+import type { UsageTracker } from "../anthropic/usage.js";
 import type { PRContext } from "../github/pr-context.js";
 import { prompts } from "./_prompts.js";
 import { renderPRForLLM } from "./_render.js";
@@ -20,6 +21,7 @@ export async function buildEntry(
   model: string,
   pr: PRContext,
   matchedSkills: string[],
+  tracker?: UsageTracker,
 ): Promise<BuiltEntry> {
   const skillBodies = matchedSkills.map((name) => {
     try {
@@ -31,7 +33,15 @@ export async function buildEntry(
 
   const system = buildCachedSystem([prompts.entryBuilder(), ...skillBodies]);
   const userText = renderPRForLLM(pr);
-  return callJsonModel({ client, model, system, userText, schema: builtSchema, maxTokens: 2048 });
+  return callJsonModel({
+    client,
+    model,
+    system,
+    userText,
+    schema: builtSchema,
+    maxTokens: 2048,
+    tracker,
+  });
 }
 
 export function builtEntryToMarkdown(entry: BuiltEntry): string {

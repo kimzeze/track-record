@@ -1,4 +1,5 @@
 import { getAnthropic } from "../anthropic/client.js";
+import { UsageTracker } from "../anthropic/usage.js";
 import type { Config } from "../config/types.js";
 import { buildEntry } from "../curator/entry-builder.js";
 import { mergeEntry } from "../curator/entry-merger.js";
@@ -13,83 +14,108 @@ import { ensureRootReadme, ensureUserIndex } from "../vault/initializer.js";
 import { vaultEntryPath } from "../vault/path-resolver.js";
 import { readEntryFile } from "../vault/reader.js";
 import { writeEntryFile } from "../vault/writer.js";
+import { attachStage, type Stage } from "./stages.js";
 
-export async function runPipeline(config: Config): Promise<void> {
+export async function runPipeline(config: Config, tracker: UsageTracker): Promise<void> {
   const anthropic = getAnthropic(config.anthropicApiKey);
   const octokit = getOctokit(config.githubToken);
   const vault = getVaultRepo(config.targetRepo, config.targetToken);
 
-  logger.info("PR 컨텍스트 fetch", {
-    repo: `${config.repoOwner}/${config.repoName}`,
-    pr: config.prNumber,
-  });
+  let stage: Stage = "init";
+  try {
+    stage = "fetch-pr";
+    logger.info("PR 컨텍스트 fetch", {
+      repo: `${config.repoOwner}/${config.repoName}`,
+      pr: config.prNumber,
+    });
 
-  const pr = await fetchPRContext(
-    octokit,
-    config.repoOwner,
-    config.repoName,
-    config.prNumber,
-    config.excludePatterns,
-    config.diffTokenBudget,
-  );
+    const pr = await fetchPRContext(
+      octokit,
+      config.repoOwner,
+      config.repoName,
+      config.prNumber,
+      config.excludePatterns,
+      config.diffTokenBudget,
+    );
 
-  logger.info("PR 정보", {
-    title: pr.title,
-    author: pr.author,
-    files: pr.changedFilesCount,
-    additions: pr.additions,
-    deletions: pr.deletions,
-    diffTokens: pr.diffTokens,
-    mode: pr.mode,
-  });
+    logger.info("PR 정보", {
+      title: pr.title,
+      author: pr.author,
+      files: pr.changedFilesCount,
+      additions: pr.additions,
+      deletions: pr.deletions,
+      diffTokens: pr.diffTokens,
+      mode: pr.mode,
+    });
 
-  if (pr.parsedDiff.files.length === 0) {
-    logger.info("변경 파일 0개 (또는 전부 exclude됨) → SKIP");
-    return;
-  }
-
-  const judgement = await judgeThreshold(anthropic, config.modelJudge, pr);
-  logger.info("threshold judgement", judgement);
-  if (!judgement.pass) {
-    logger.info("임계 미달 → SKIP");
-    if (config.slackWebhookUrl) {
-      await sendSlackSkip(config.slackWebhookUrl, pr, judgement, config.repoName);
+    if (pr.parsedDiff.files.length === 0) {
+      logger.info("변경 파일 0개 (또는 전부 exclude됨) → SKIP");
+      return;
     }
-    return;
-  }
 
-  const { skills } = await matchSkills(anthropic, config.modelJudge, pr);
-  logger.info("skill match", { skills });
+    stage = "judge";
+    const judgement = await judgeThreshold(anthropic, config.modelJudge, pr, tracker);
+    logger.info("threshold judgement", judgement);
+    if (!judgement.pass) {
+      logger.info("임계 미달 → SKIP");
+      if (config.slackWebhookUrl) {
+        await sendSlackSkip(config.slackWebhookUrl, pr, judgement, config.repoName, tracker.total());
+      }
+      return;
+    }
 
-  const entry = await buildEntry(anthropic, config.modelBuilder, pr, skills);
-  logger.info("entry built", { category: entry.category, headline: entry.headline });
+    stage = "match";
+    const { skills } = await matchSkills(anthropic, config.modelJudge, pr, tracker);
+    logger.info("skill match", { skills });
 
-  await ensureRootReadme(vault);
-  await ensureUserIndex(vault, pr.author);
+    stage = "build";
+    const entry = await buildEntry(anthropic, config.modelBuilder, pr, skills, tracker);
+    logger.info("entry built", { category: entry.category, headline: entry.headline });
 
-  const path = vaultEntryPath(pr.author, config.repoName);
-  const existing = await readEntryFile(vault, path);
-  logger.info("기존 entry 조회", { exists: existing.exists, path });
+    stage = "vault-init";
+    await ensureRootReadme(vault);
+    await ensureUserIndex(vault, pr.author);
 
-  const decision = await mergeEntry(
-    anthropic,
-    config.modelBuilder,
-    config.repoName,
-    existing.content,
-    entry,
-  );
-  logger.info("머지 결정", { action: decision.action, reason: decision.reason });
+    stage = "vault-read";
+    const path = vaultEntryPath(pr.author, config.repoName);
+    const existing = await readEntryFile(vault, path);
+    logger.info("기존 entry 조회", { exists: existing.exists, path });
 
-  const commitMessage = `track: ${pr.author}/${config.repoName} — PR #${pr.number} ${decision.action}`;
-  await writeEntryFile(vault, {
-    path,
-    content: decision.updatedMarkdown,
-    message: commitMessage,
-    sha: existing.sha,
-  });
-  logger.info("vault push 완료", { path, action: decision.action });
+    stage = "merge";
+    const decision = await mergeEntry(
+      anthropic,
+      config.modelBuilder,
+      config.repoName,
+      existing.content,
+      entry,
+      tracker,
+    );
+    logger.info("머지 결정", { action: decision.action, reason: decision.reason });
 
-  if (config.slackWebhookUrl) {
-    await sendSlackPass(config.slackWebhookUrl, pr, entry, config.targetRepo, config.repoName);
+    stage = "vault-write";
+    const commitMessage = `track: ${pr.author}/${config.repoName} — PR #${pr.number} ${decision.action}`;
+    await writeEntryFile(vault, {
+      path,
+      content: decision.updatedMarkdown,
+      message: commitMessage,
+      sha: existing.sha,
+    });
+    logger.info("vault push 완료", { path, action: decision.action });
+
+    stage = "slack-pass";
+    if (config.slackWebhookUrl) {
+      await sendSlackPass(
+        config.slackWebhookUrl,
+        pr,
+        entry,
+        config.targetRepo,
+        config.repoName,
+        tracker.total(),
+      );
+    }
+
+    logger.info("usage totals", { ...tracker.total() } as Record<string, unknown>);
+  } catch (e: unknown) {
+    throw attachStage(e, stage);
   }
 }
