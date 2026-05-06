@@ -1,4 +1,5 @@
 import { getAnthropic } from "../anthropic/client.js";
+import { UsageTracker } from "../anthropic/usage.js";
 import type { Config } from "../config/types.js";
 import { buildEntry } from "../curator/entry-builder.js";
 import { mergeEntry } from "../curator/entry-merger.js";
@@ -15,7 +16,7 @@ import { readEntryFile } from "../vault/reader.js";
 import { writeEntryFile } from "../vault/writer.js";
 import { attachStage, type Stage } from "./stages.js";
 
-export async function runPipeline(config: Config): Promise<void> {
+export async function runPipeline(config: Config, tracker: UsageTracker): Promise<void> {
   const anthropic = getAnthropic(config.anthropicApiKey);
   const octokit = getOctokit(config.githubToken);
   const vault = getVaultRepo(config.targetRepo, config.targetToken);
@@ -53,22 +54,22 @@ export async function runPipeline(config: Config): Promise<void> {
     }
 
     stage = "judge";
-    const judgement = await judgeThreshold(anthropic, config.modelJudge, pr);
+    const judgement = await judgeThreshold(anthropic, config.modelJudge, pr, tracker);
     logger.info("threshold judgement", judgement);
     if (!judgement.pass) {
       logger.info("임계 미달 → SKIP");
       if (config.slackWebhookUrl) {
-        await sendSlackSkip(config.slackWebhookUrl, pr, judgement, config.repoName);
+        await sendSlackSkip(config.slackWebhookUrl, pr, judgement, config.repoName, tracker.total());
       }
       return;
     }
 
     stage = "match";
-    const { skills } = await matchSkills(anthropic, config.modelJudge, pr);
+    const { skills } = await matchSkills(anthropic, config.modelJudge, pr, tracker);
     logger.info("skill match", { skills });
 
     stage = "build";
-    const entry = await buildEntry(anthropic, config.modelBuilder, pr, skills);
+    const entry = await buildEntry(anthropic, config.modelBuilder, pr, skills, tracker);
     logger.info("entry built", { category: entry.category, headline: entry.headline });
 
     stage = "vault-init";
@@ -87,6 +88,7 @@ export async function runPipeline(config: Config): Promise<void> {
       config.repoName,
       existing.content,
       entry,
+      tracker,
     );
     logger.info("머지 결정", { action: decision.action, reason: decision.reason });
 
@@ -102,8 +104,17 @@ export async function runPipeline(config: Config): Promise<void> {
 
     stage = "slack-pass";
     if (config.slackWebhookUrl) {
-      await sendSlackPass(config.slackWebhookUrl, pr, entry, config.targetRepo, config.repoName);
+      await sendSlackPass(
+        config.slackWebhookUrl,
+        pr,
+        entry,
+        config.targetRepo,
+        config.repoName,
+        tracker.total(),
+      );
     }
+
+    logger.info("usage totals", { ...tracker.total() } as Record<string, unknown>);
   } catch (e: unknown) {
     throw attachStage(e, stage);
   }

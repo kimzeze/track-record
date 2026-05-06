@@ -1,3 +1,4 @@
+import type { UsageTotals } from "../anthropic/usage.js";
 import type { BuiltEntry } from "../curator/entry-builder.js";
 import type { ThresholdJudgement } from "../curator/threshold-judge.js";
 import type { PRContext, PRMode } from "../github/pr-context.js";
@@ -51,12 +52,37 @@ function field(label: string, value: string): string {
   return `• *${label}*: ${value}`;
 }
 
+function formatNumber(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
+function formatCost(usd: number): string {
+  if (usd === 0) return "$0";
+  if (usd < 0.0001) return "<$0.0001";
+  return `$${usd.toFixed(4)}`;
+}
+
+function usageLine(totals: UsageTotals): string {
+  const parts = [
+    `${totals.callCount} calls`,
+    `${formatNumber(totals.inputTokens)} in / ${formatNumber(totals.outputTokens)} out`,
+  ];
+  if (totals.cacheReadTokens > 0 || totals.cacheWriteTokens > 0) {
+    parts.push(
+      `cache ${formatNumber(totals.cacheReadTokens)} read / ${formatNumber(totals.cacheWriteTokens)} write`,
+    );
+  }
+  parts.push(`~${formatCost(totals.costUsd)}`);
+  return parts.join(" · ");
+}
+
 export async function sendSlackPass(
   webhookUrl: string,
   pr: PRContext,
   entry: BuiltEntry,
   targetRepo: string,
   projectName: string,
+  totals?: UsageTotals,
 ): Promise<void> {
   const vaultUrl = vaultEntryUrl(targetRepo, pr.author, projectName);
   const fields = [
@@ -66,6 +92,9 @@ export async function sendSlackPass(
     field("카테고리", `\`${entry.category}\``),
     field("모드", `\`${modeLabel(pr.mode)}\``),
   ].join("\n");
+
+  const contextLines: string[] = [`<${vaultUrl}|vault entry> · <${pr.url}|PR>`];
+  if (totals) contextLines.unshift(usageLine(totals));
 
   const payload: SlackPayload = {
     attachments: [
@@ -85,9 +114,7 @@ export async function sendSlackPass(
           },
           {
             type: "context",
-            elements: [
-              { type: "mrkdwn", text: `<${vaultUrl}|vault entry> · <${pr.url}|PR>` },
-            ],
+            elements: contextLines.map((text) => ({ type: "mrkdwn", text })),
           },
         ],
       },
@@ -101,6 +128,7 @@ export async function sendSlackSkip(
   pr: PRContext,
   judgement: ThresholdJudgement,
   projectName: string,
+  totals?: UsageTotals,
 ): Promise<void> {
   const fields = [
     field("레포", `\`${pr.owner}/${pr.repo}\``),
@@ -109,27 +137,28 @@ export async function sendSlackSkip(
     field("사유", judgement.reason),
   ].join("\n");
 
-  const payload: SlackPayload = {
-    attachments: [
-      {
-        color: COLOR_SKIP,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `⏭️ *Skip* — \`${projectName}\`\n*${pr.title}*`,
-            },
-          },
-          {
-            type: "section",
-            text: { type: "mrkdwn", text: fields },
-          },
-        ],
+  const blocks: SlackBlock[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `⏭️ *Skip* — \`${projectName}\`\n*${pr.title}*`,
       },
-    ],
-  };
-  await post(webhookUrl, payload);
+    },
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: fields },
+    },
+  ];
+
+  if (totals) {
+    blocks.push({
+      type: "context",
+      elements: [{ type: "mrkdwn", text: usageLine(totals) }],
+    });
+  }
+
+  await post(webhookUrl, { attachments: [{ color: COLOR_SKIP, blocks }] });
 }
 
 export interface SlackFailParams {
@@ -142,6 +171,7 @@ export interface SlackFailParams {
   mode?: PRMode;
   errorMessage: string;
   runUrl?: string;
+  totals?: UsageTotals;
 }
 
 export async function sendSlackFail(webhookUrl: string, params: SlackFailParams): Promise<void> {
@@ -185,10 +215,14 @@ export async function sendSlackFail(webhookUrl: string, params: SlackFailParams)
       text: { type: "mrkdwn", text: fieldLines },
     },
   ];
-  if (links.length > 0) {
+
+  const contextLines: string[] = [];
+  if (params.totals) contextLines.push(usageLine(params.totals));
+  if (links.length > 0) contextLines.push(links.join(" · "));
+  if (contextLines.length > 0) {
     blocks.push({
       type: "context",
-      elements: [{ type: "mrkdwn", text: links.join(" · ") }],
+      elements: contextLines.map((text) => ({ type: "mrkdwn", text })),
     });
   }
 

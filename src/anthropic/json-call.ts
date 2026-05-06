@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
 import type { CachedTextBlock } from "./client.js";
+import type { UsageTracker } from "./usage.js";
 
 export interface JsonCallOptions<T> {
   client: Anthropic;
@@ -9,6 +10,7 @@ export interface JsonCallOptions<T> {
   userText: string;
   schema: z.ZodSchema<T>;
   maxTokens?: number;
+  tracker?: UsageTracker;
 }
 
 export async function callJsonModel<T>(opts: JsonCallOptions<T>): Promise<T> {
@@ -18,6 +20,10 @@ export async function callJsonModel<T>(opts: JsonCallOptions<T>): Promise<T> {
     system: opts.system,
     messages: [{ role: "user", content: opts.userText }],
   });
+
+  if (opts.tracker) {
+    opts.tracker.record(opts.model, response.usage);
+  }
 
   const block = response.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") {

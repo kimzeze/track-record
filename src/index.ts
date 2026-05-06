@@ -1,8 +1,11 @@
+import { UsageTracker } from "./anthropic/usage.js";
 import { loadConfig } from "./config/index.js";
 import { runPipeline } from "./pipeline/index.js";
 import { getStage } from "./pipeline/stages.js";
 import { sendSlackFail } from "./slack/client.js";
 import { logger } from "./utils/logger.js";
+
+const tracker = new UsageTracker();
 
 function buildRunUrl(): string | undefined {
   const server = process.env.GITHUB_SERVER_URL;
@@ -39,6 +42,7 @@ async function notifyFail(error: unknown): Promise<void> {
     stage,
     errorMessage,
     runUrl: buildRunUrl(),
+    totals: tracker.total(),
   });
 }
 
@@ -54,7 +58,7 @@ async function main() {
     excludeCount: config.excludePatterns.length,
   });
 
-  await runPipeline(config);
+  await runPipeline(config, tracker);
   logger.info("=== 완료 ===");
 }
 

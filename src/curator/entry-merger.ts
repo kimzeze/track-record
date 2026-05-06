@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildCachedSystem } from "../anthropic/client.js";
 import { callJsonModel } from "../anthropic/json-call.js";
+import type { UsageTracker } from "../anthropic/usage.js";
 import { prompts } from "./_prompts.js";
 import type { BuiltEntry } from "./entry-builder.js";
 
@@ -19,6 +20,7 @@ export async function mergeEntry(
   projectName: string,
   existingMarkdown: string,
   newEntry: BuiltEntry,
+  tracker?: UsageTracker,
 ): Promise<MergeDecision> {
   const system = buildCachedSystem([prompts.entryMerger()]);
   const userText = `# projectName
@@ -30,5 +32,13 @@ ${existingMarkdown || "(empty)"}
 # newEntry (JSON)
 ${JSON.stringify(newEntry, null, 2)}
 `;
-  return callJsonModel({ client, model, system, userText, schema: mergeSchema, maxTokens: 8192 });
+  return callJsonModel({
+    client,
+    model,
+    system,
+    userText,
+    schema: mergeSchema,
+    maxTokens: 8192,
+    tracker,
+  });
 }
