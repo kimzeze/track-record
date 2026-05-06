@@ -52,10 +52,6 @@ function field(label: string, value: string): string {
   return `• *${label}*: ${value}`;
 }
 
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
 function formatCost(usd: number): string {
   if (usd === 0) return "$0";
   if (usd < 0.0001) return "<$0.0001";
@@ -63,17 +59,7 @@ function formatCost(usd: number): string {
 }
 
 function usageLine(totals: UsageTotals): string {
-  const parts = [
-    `${totals.callCount} calls`,
-    `${formatNumber(totals.inputTokens)} in / ${formatNumber(totals.outputTokens)} out`,
-  ];
-  if (totals.cacheReadTokens > 0 || totals.cacheWriteTokens > 0) {
-    parts.push(
-      `cache ${formatNumber(totals.cacheReadTokens)} read / ${formatNumber(totals.cacheWriteTokens)} write`,
-    );
-  }
-  parts.push(`~${formatCost(totals.costUsd)}`);
-  return parts.join(" · ");
+  return `*비용*: ~${formatCost(totals.costUsd)}  ·  ${totals.callCount} calls`;
 }
 
 export async function sendSlackPass(

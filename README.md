@@ -10,6 +10,10 @@ flowchart LR
     Build --> Merge[AI<br/>Merge]
     Merge --> Vault[(📚 vault<br/>repo)]
     Merge --> Slack[💬 Slack pass]
+    Judge -.->|error| FailSlack[💬 Slack fail]
+    Build -.->|error| FailSlack
+    Merge -.->|error| FailSlack
+    Vault -.->|error| FailSlack
 
     style Judge fill:#fbbf24,stroke:#b45309,color:#000
     style Build fill:#60a5fa,stroke:#1e40af,color:#fff
@@ -17,6 +21,7 @@ flowchart LR
     style Vault fill:#22c55e,stroke:#15803d,color:#fff
     style Slack fill:#a855f7,stroke:#6b21a8,color:#fff
     style SkipSlack fill:#9ca3af,stroke:#4b5563,color:#fff
+    style FailSlack fill:#ef4444,stroke:#991b1b,color:#fff
 ```
 
 > **새 레포에 적용하려면?** [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md)를 참고하세요. AI 어시스턴트에게 이 파일을 제공하면 셋업을 도와줍니다.
@@ -310,29 +315,55 @@ vault 폴더 구조:
 
 ## Slack 알림
 
-PASS/SKIP 모두 알림 전송 (webhook 등록된 caller 레포만).
+PASS / SKIP / FAIL 세 종류 모두 알림 전송 (webhook 등록된 caller 레포만). 라벨이 한 줄씩 정렬되고, 누적 **API 비용**이 컨텍스트 라인에 함께 표시됩니다.
 
-### PASS — 새 적립
-
-```
-🎯 새 적립 — kimzeze/frontend-aptimizer
-[#102] Turborepo Remote Cache로 CI 62% 단축
-  └ Performance > Caching
-[vault] [PR]
-```
-
-녹색 attachment.
-
-### SKIP — 임계 미달
+### PASS — 새 적립 (녹색)
 
 ```
-⏭️ skip — kimzeze/frontend-aptimizer
-[#151] ci: caller에 SLACK_WEBHOOK_URL 패스 추가
-  └ 단순 CI 설정 변경으로 secret 패스만 추가. 테크 깊이나 정량 임팩트 없음.
-[PR]
+🎯 새 적립
+*Turborepo Remote Cache로 CI 62% 단축*
+
+• 레포: aptimizer-co/frontend-aptimizer
+• PR: #102 chore: turbo remote cache 도입
+• 작성자: kimzeze
+• 카테고리: Performance > Caching
+• 모드: full
+
+비용: ~$0.0421  ·  4 calls
+vault entry · PR
 ```
 
-회색 attachment.
+### SKIP — 임계 미달 (회색)
+
+```
+⏭️ Skip — frontend-aptimizer
+*ci: caller에 SLACK_WEBHOOK_URL 패스 추가*
+
+• 레포: aptimizer-co/frontend-aptimizer
+• PR: #151
+• 작성자: kimzeze
+• 사유: 단순 CI 설정 변경으로 secret 패스만 추가. 테크 깊이나 정량 임팩트 없음.
+
+비용: ~$0.0034  ·  1 calls
+```
+
+### FAIL — 실행 실패 (빨강)
+
+판정·작성 도중 어느 단계에서든 에러가 나면, **그 단계 라벨**과 에러 본문을 알림으로 받습니다. 그때까지 누적된 API 비용도 같이 표시되어 손실 비용 파악이 쉽습니다.
+
+```
+❌ 실패 — `vault-write` 단계
+
+• 레포: aptimizer-co/frontend-aptimizer
+• PR: #153 refactor(dashboard): bilbao 1:1...
+• 단계: vault-write
+• 에러: Not Found - https://docs.github.com/rest/repos/contents/...
+
+비용: ~$0.0521  ·  4 calls
+workflow run · PR
+```
+
+가능한 단계 라벨: `init / fetch-pr / judge / match / build / vault-init / vault-read / merge / vault-write / slack-pass`.
 
 webhook 미등록이면 알림 없이 silent skip됩니다 (비용·동작 영향 없음).
 
@@ -431,12 +462,14 @@ caller workflow에서 reusable에 전달:
 
 ### 거대 PR 처리 — 4단계 폴백
 
-| 단계 | 조건 | 동작 |
+| 모드 | 조건 | 동작 |
 |------|------|------|
-| **정상** | diff 토큰 ≤ budget | full 모드, diff 본문 포함 분석 |
-| **메타데이터 모드** | diff 토큰 > budget | PR title·description·commit message·파일 목록만 사용 |
-| **변경 0개** | exclude 후 변경 파일 0 | silent skip |
-| **분석 불가** | 메타데이터도 큰 경우 | silent skip + 로그 |
+| **`full`** | diff 토큰 ≤ budget | 전체 diff 본문 포함 분석 |
+| **`truncated`** | diff 토큰 > budget, 일부 patch 들어감 | 변경량 큰 파일부터 patch 포함, 나머지는 메타만 (LLM에 명시) |
+| **`metadata-only`** | 헤더만으로도 budget 초과 | PR 메타·파일 목록·commit 메시지만 사용 |
+| **`skip`** | exclude 후 변경 파일 0 | 알림 없이 종료 |
+
+`truncated`는 변경량 `(additions + deletions) desc, path asc`로 정렬해 결정적입니다. 해당 모드는 **Slack 알림에도 노출**되어 사용자가 본문 정보가 줄었음을 인지할 수 있습니다.
 
 ---
 
@@ -463,7 +496,11 @@ PASS:  30 × $0.10  = $3.00
 - 가벼운 모델 1차 게이트 (해당 PR의 50% 이상 조기 종료 기대)
 - Anthropic prompt caching (입력 토큰 ~90% 할인)
 - exclude_patterns로 노이즈 제거 (lock file·테스트·스토리 등)
-- diff 토큰 예산 + 메타데이터 폴백
+- diff 토큰 예산 + truncated/metadata 폴백
+
+### 비용 자동 추적
+
+매 실행마다 4번의 LLM 호출 `usage` 응답을 누적해 **실제 사용 비용을 산출**하고, Slack 알림(PASS/SKIP/FAIL 모두) 컨텍스트 라인에 표시합니다. 가격 테이블은 `src/anthropic/usage.ts` 의 `MODEL_PRICING` 에 2026-05-06 기준 [Anthropic 공식가](https://platform.claude.com/docs/en/about-claude/pricing) 가 박혀 있고, 모델 ID는 longest-prefix 매칭으로 자동 인식됩니다. 매칭 실패 시 비용은 0달러로 처리되며 `WARN` 로그가 남습니다.
 
 ---
 
@@ -490,14 +527,19 @@ track-record/
 │   └── stacks/                                 ← 베스트 프랙티스 마크다운
 │       └── vercel-react-best-practices.md
 ├── src/
-│   ├── index.ts                                ← 진입점
-│   ├── pipeline/index.ts                       ← 4단계 오케스트레이션
+│   ├── index.ts                                ← 진입점 + main catch
+│   ├── pipeline/
+│   │   ├── index.ts                            ← 4단계 오케스트레이션 + stage tracking
+│   │   └── stages.ts                           ← Stage 타입 + 에러에 stage attach
 │   ├── config/                                 ← env 로딩 + zod 검증
 │   ├── anthropic/                              ← SDK 래퍼 + JSON 호출 + caching
+│   │   ├── client.ts
+│   │   ├── json-call.ts                        ← tracker 자동 record
+│   │   └── usage.ts                            ← MODEL_PRICING + UsageTracker
 │   ├── github/                                 ← octokit + diff parser + PR fetch
 │   ├── curator/                                ← 4단계 핸들러 (TS)
 │   ├── vault/                                  ← vault 읽기·쓰기·초기화
-│   ├── slack/                                  ← webhook POST 모듈
+│   ├── slack/                                  ← PASS/SKIP/FAIL webhook 모듈
 │   └── utils/logger.ts
 ├── package.json
 ├── tsconfig.json
@@ -534,11 +576,12 @@ pnpm test:watch           # 워치 모드
 
 ### 단위 테스트
 
-현재 16개 테스트가 핵심 유틸을 검증:
+현재 32개 테스트가 핵심 유틸을 검증:
 
-- `diff-parser.test.ts` — 토큰 추정·glob 매칭·예산 절단
+- `diff-parser.test.ts` — 토큰 추정·glob 매칭·`prioritizeFiles` 우선순위 알고리즘
 - `path-resolver.test.ts` — vault 경로 sanitize
 - `json-call.test.ts` — JSON 추출 (raw / 코드펜스 / 산문 혼합 / 스키마 위반)
+- `usage.test.ts` — 가격 매칭 (longest-prefix), 비용 계산, `UsageTracker` 누적
 
 새 큐레이터 단계나 매칭 로직 추가 시 단위 테스트도 같이 추가.
 
@@ -564,6 +607,7 @@ pnpm test:watch           # 워치 모드
 | `repository not found` (curate workflow의 checkout 단계) | track-record가 private인데 caller가 토큰 없이 checkout. → public으로 두거나 PAT 추가 |
 | `Not Found - create-or-update-file-contents` (vault push 시) | **vault 빈 레포** → default branch 없음. 첫 commit으로 `README.md` 추가 후 재시도 |
 | `403 Resource not accessible by integration` | TARGET_TOKEN 권한 부족. PAT 발급 시 Contents: Read and write + Resource owner: vault 소유자 확인 |
+| `Not Found` (vault 존재함에도 GET·PUT 모두 404) | **org PAT 승인 누락**. fine-grained PAT가 org 정책상 admin 승인 필요 → org owner가 `https://github.com/organizations/{org}/settings/personal-access-token-requests` 에서 승인 |
 | 모든 PR이 SKIP | `prompts/curator/threshold-judge.md` 기준이 너무 엄격. 운영 데이터 보고 프롬프트 조정 |
 | `JSON 추출 실패` | 모델 응답이 JSON 형식 이탈. `prompts/curator/*.md` 의 "출력 (JSON only)" 섹션 강조 |
 | caller workflow가 안 뜸 (Actions 탭에 안 나옴) | `if: github.event.pull_request.merged == true` 매칭 안 됨 — close 후 unmerged면 정상 (skip) |
