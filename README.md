@@ -1,6 +1,7 @@
 # Track Record
 
-PR이 머지되는 순간 AI가 변경 사항을 분석해 **이력서감인지 자율 판단**하고, 통과한 작업만 별도 vault 레포에 **4문장 STAR 형식**으로 자동 적립하는 reusable GitHub Action.
+PR이 머지되는 순간 AI가 변경 사항을 분석해 **기록할만한** **적절한 성과인지 자율 판단**하고, 
+통과한 작업만 별도 vault 레포에 **4문장 STAR 형식**으로 자동 적립하는 reusable GitHub Action.
 
 ```mermaid
 flowchart LR
@@ -24,42 +25,45 @@ flowchart LR
     style FailSlack fill:#ef4444,stroke:#991b1b,color:#fff
 ```
 
-> **새 레포에 적용하려면?** [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md)를 참고하세요. AI 어시스턴트에게 이 파일을 제공하면 셋업을 도와줍니다.
->
-> **프롬프트 추가·수정하려면?** [`docs/PROMPT_GUIDE.md`](docs/PROMPT_GUIDE.md)를 참고하세요.
+> **새 레포에 적용하려면?** [`docs/SETUP_GUIDE.md`](https://www.notion.so/docs/SETUP_GUIDE.md)를 참고하세요. AI 어시스턴트에게 이 파일을 제공하면 셋업을 도와줍니다.
+> 
+> 
+> **프롬프트 추가·수정하려면?** [`docs/PROMPT_GUIDE.md`](https://www.notion.so/docs/PROMPT_GUIDE.md)를 참고하세요.
+> 
 
 ---
 
 ## 목차
 
-- [왜 만들었나](#왜-만들었나)
-- [어떻게 동작하나](#어떻게-동작하나)
-- [아키텍처](#아키텍처)
-- [큐레이터 4단계 파이프라인](#큐레이터-4단계-파이프라인)
-- [4문장 STAR 형식](#4문장-star-형식)
-- [프롬프트 시스템](#프롬프트-시스템)
-- [출력 예시](#출력-예시)
-- [Slack 알림](#slack-알림)
-- [빠른 시작 가이드](#빠른-시작-가이드)
-- [설정 옵션](#설정-옵션)
-- [비용 추정](#비용-추정)
-- [프로젝트 구조](#프로젝트-구조)
-- [개발 가이드](#개발-가이드)
-- [새 레포에 적용하기](#새-레포에-적용하기)
-- [트러블슈팅](#트러블슈팅)
+- [왜 만들었나](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [어떻게 동작하나](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [아키텍처](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [큐레이터 4단계 파이프라인](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [4문장 STAR 형식](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [프롬프트 시스템](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [출력 예시](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [Slack 알림](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [빠른 시작 가이드](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [설정 옵션](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [비용 추정](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [프로젝트 구조](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [개발 가이드](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [새 레포에 적용하기](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
+- [트러블슈팅](https://www.notion.so/Track-record-359f557d7eb68093a45bc1aeb8995d9e?pvs=21)
 
 ---
 
 ## 왜 만들었나
 
-이력서를 쓸 때 가장 어려운 건 "내가 1년 전에 뭐 했는지"가 흐려진다는 점입니다. PR 제목·diff는 GitHub에 살아 있지만 **"왜 그 결정을 내렸는지", "어떤 트레이드오프를 감수했는지"**, **"결과 수치가 어땠는지"** 같은 의사결정 흔적은 시간이 지나면 사라집니다.
+업무를 이어갈 때 가장 어려운 건 "내가 1년 전에 뭐 했는지"가 흐려진다는 점입니다. 
+PR 제목·diff는 GitHub에 살아 있지만 **"왜 그 결정을 내렸는지", "어떤 트레이드오프를 감수했는지"**, **"결과 수치가 어땠는지"** 같은 의사결정 흔적은 시간이 지나면 사라집니다.
 
-요즘 좋은 이력서의 차별화 요소는 단순 "X를 했다"가 아니라 **서사**입니다 — 왜 시작했고, 어떤 대안을 고려했고, 어떻게 트레이드오프했고, 결과가 어땠는지. 그리고 이 서사야말로 AI가 쉽게 못 만드는 부분입니다.
+요즘 좋은 경험의 차별화 요소는 단순 "X를 했다"가 아니라 **서사**입니다 — 왜 시작했고, 어떤 대안을 고려했고, 어떻게 트레이드오프했고, 결과가 어땠는지. 그리고 이 서사야말로 AI가 쉽게 못 만드는 부분입니다.
 
 Track Record는 **PR 머지 시점에 그 서사가 가장 fresh할 때 자동으로 포착해 응축형으로 적립**하는 시스템입니다.
 
 - 사람은 평소처럼 코드 짜고 PR 머지만 합니다
-- AI가 자율적으로 "이력서감"을 판단해 통과한 작업만 적립합니다
+- AI가 자율적으로 판단해 통과한 작업만 적립합니다
 - 통과한 작업은 4문장 STAR 형식(문제 · 결정 · 결과 · 학습)으로 응축되어 vault에 누적됩니다
 - 비슷한 주제는 자동으로 통합·보강합니다
 
@@ -129,12 +133,13 @@ flowchart LR
 **3 종류의 레포:**
 
 | 레포 종류 | 역할 | 갯수 |
-|---|---|---|
+| --- | --- | --- |
 | **track-record** (이 레포) | 큐레이터 로직 + 워크플로우 보관 | 1개 (조직당) |
 | **vault repo** | 적립된 entry 누적 저장 | 1개 (조직당, 보통 private) |
 | **target repo** | 평소 코드 작업하는 곳 | N개 (각 레포에 caller 1줄) |
 
 **중앙 관리의 장점:**
+
 - 큐레이터 로직을 한 곳에서 관리 — 수정하면 모든 대상 레포에 즉시 반영
 - 대상 레포는 caller workflow 하나만 추가하면 끝 (13줄 YAML)
 - 프롬프트·모델 설정이 코드와 분리되어 독립적으로 개선 가능
@@ -174,7 +179,7 @@ flowchart TD
 ### 단계별 책임
 
 | 단계 | 역할 | 모델 | 출력 |
-|------|------|------|------|
+| --- | --- | --- | --- |
 | **① Threshold Judge** | 이력서감 1차 판정 | haiku-4.5 (가벼움) | `{ pass, category, reason }` |
 | **② Skill Matcher** | 베스트 프랙티스 스킬 매칭 | haiku-4.5 | `{ skills: [...] }` |
 | **③ Entry Builder** | 4문장 STAR entry 작성 | sonnet-4.6 (강함) | `{ category, headline, metaLine, body }` |
@@ -202,7 +207,7 @@ flowchart TD
 ### 문장 매핑
 
 | 문장 | 담는 내용 | 역할 |
-|------|----------|------|
+| --- | --- | --- |
 | **1. 문제** | 상황 + 부족함 (정량 가능 시) | 왜 시작했나 |
 | **2. 결정** | 대안 + 트레이드오프 ("X 대신 Y") | 왜 그 선택? — 시니어리티 시그널 |
 | **3. 결과** | 구현 핵심 + 정량 임팩트 | 어떻게 했고 어떤 수치 |
@@ -233,23 +238,23 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 
 ```
 ┌──────────────────────────────────────────────┐
-│  Layer 1: Curator 프롬프트 (필수)              │  prompts/curator/{stage}.md
-│  → 4단계 각 역할/룰 (범용)                     │  threshold-judge / skill-matcher
-│                                                │  entry-builder / entry-merger
+│  Layer 1: Curator 프롬프트 (필수)               │  prompts/curator/{stage}.md
+│  → 4단계 각 역할/룰 (범용)                       │  threshold-judge / skill-matcher
+│                                              │  entry-builder / entry-merger
 ├──────────────────────────────────────────────┤
-│  Layer 2: Stack 프롬프트 (선택, 복수)           │  prompts/stacks/{name}.md
-│  → 매칭된 베스트 프랙티스 (Entry Builder만)     │  Skill Matcher가 동적 선택
+│  Layer 2: Stack 프롬프트 (선택, 복수)            │  prompts/stacks/{name}.md
+│  → 매칭된 베스트 프랙티스 (Entry Builder만)        │  Skill Matcher가 동적 선택
 └──────────────────────────────────────────────┘
 ```
 
 ### 사용 가능한 프롬프트
 
 | 분류 | 파일 | 설명 |
-|------|------|------|
+| --- | --- | --- |
 | **Curator** | `curator/threshold-judge.md` | PASS/SKIP 판정 기준 |
-| | `curator/skill-matcher.md` | 변경 파일 → 스킬 매칭 룰 |
-| | `curator/entry-builder.md` | 4문장 STAR 작성 가이드 |
-| | `curator/entry-merger.md` | 기존 entry와 통합 판단 |
+|  | `curator/skill-matcher.md` | 변경 파일 → 스킬 매칭 룰 |
+|  | `curator/entry-builder.md` | 4문장 STAR 작성 가이드 |
+|  | `curator/entry-merger.md` | 기존 entry와 통합 판단 |
 | **Stack** | `stacks/vercel-react-best-practices.md` | React 컴포넌트·hook·렌더링 (시작 셋) |
 
 ### 새 베스트 프랙티스 추가
@@ -261,7 +266,7 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 3. `pnpm test && pnpm build` 검증
 4. main에 머지 → 모든 caller에 즉시 반영
 
-자세한 내용은 [`docs/PROMPT_GUIDE.md`](docs/PROMPT_GUIDE.md).
+자세한 내용은 [`docs/PROMPT_GUIDE.md`](https://www.notion.so/docs/PROMPT_GUIDE.md).
 
 ---
 
@@ -276,7 +281,7 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 
 ## Performance > Caching
 ### Turborepo Remote Cache로 CI 62% 단축
-[PR #102](https://github.com/aptimizer-co/frontend-aptimizer/pull/102) · 2026-03-15 · `Turborepo` `GitHub Actions`
+[PR #102](<https://github.com/aptimizer-co/frontend-aptimizer/pull/102>) · 2026-03-15 · `Turborepo` `GitHub Actions`
 
 1. 모노레포 18 패키지 규모에서 매 push마다 변경 없는 패키지까지 재빌드되며 CI 평균 8분 → 팀 throughput 병목.
 2. Nx 마이그레이션은 도구 전환 비용이 크고 GitHub Actions cache는 task graph 단위 캐싱 미지원이라, 기존 turbo.json 자산 재사용 가능한 remote cache 채택.
@@ -285,7 +290,7 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 
 ## Performance > React Server Components
 ### App Router 마이그레이션으로 초기 번들 57% 감축
-[PR #156](https://github.com/aptimizer-co/frontend-aptimizer/pull/156) · 2026-04-02 · `Next.js` `RSC`
+[PR #156](<https://github.com/aptimizer-co/frontend-aptimizer/pull/156>) · 2026-04-02 · `Next.js` `RSC`
 
 (... 4문장 STAR ...)
 
@@ -357,7 +362,7 @@ vault entry · PR
 • 레포: aptimizer-co/frontend-aptimizer
 • PR: #153 refactor(dashboard): bilbao 1:1...
 • 단계: vault-write
-• 에러: Not Found - https://docs.github.com/rest/repos/contents/...
+• 에러: Not Found - <https://docs.github.com/rest/repos/contents/>...
 
 비용: ~$0.0521  ·  4 calls
 workflow run · PR
@@ -384,13 +389,14 @@ GitHub → New repository
 ```
 
 > ⚠️ **빈 레포는 default branch가 없어 contents API가 실패**합니다. 첫 commit으로 `README.md` 하나를 수동 추가해 main 브랜치를 만들어 주세요. 이후 자동 갱신.
+> 
 
 ### 2단계: PAT 발급 (vault 쓰기 권한)
 
 GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token.
 
 | 항목 | 값 |
-|------|------|
+| --- | --- |
 | Token name | `track-record-vault-write` |
 | **Resource owner** | **vault 소유자** (조직 또는 본인) ⚠️ 중요 |
 | Expiration | 1 year 권장 |
@@ -401,7 +407,7 @@ GitHub → Settings → Developer settings → Personal access tokens → **Fine
 
 ### 3단계: Anthropic API key 발급
 
-[console.anthropic.com](https://console.anthropic.com) → API Keys → Create Key.
+[console.anthropic.com](https://console.anthropic.com/) → API Keys → Create Key.
 
 이름은 자유(예: `track-record`). 한 번만 보이는 키 즉시 복사.
 
@@ -435,7 +441,7 @@ jobs:
 대상 레포 → Settings → Secrets and variables → Actions:
 
 | 시크릿 | 필수 | 설명 |
-|--------|------|------|
+| --- | --- | --- |
 | `ANTHROPIC_API_KEY` | **필수** | Anthropic API 키 (org-level 권장) |
 | `TARGET_TOKEN` | **필수** | vault repo write PAT (repo-level) |
 | `SLACK_WEBHOOK_URL` | 선택 | webhook 있으면 PASS/SKIP 알림 전송 |
@@ -444,7 +450,7 @@ jobs:
 
 대상 레포에서 dev로 PR 머지 → Actions 탭 → "Track Record" workflow run 확인.
 
-자세한 내용은 [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md).
+자세한 내용은 [`docs/SETUP_GUIDE.md`](https://www.notion.so/docs/SETUP_GUIDE.md).
 
 ---
 
@@ -453,7 +459,7 @@ jobs:
 caller workflow에서 reusable에 전달:
 
 | Input | 필수 | 기본값 | 설명 |
-|-------|------|------|------|
+| --- | --- | --- | --- |
 | `target_repo` | **필수** | — | vault 레포 (`owner/repo` 형식) |
 | `model_judge` | 선택 | `claude-haiku-4-5` | 1차 판정 모델 (가벼운 게 권장) |
 | `model_builder` | 선택 | `claude-sonnet-4-6` | entry 작성·머지 모델 |
@@ -463,7 +469,7 @@ caller workflow에서 reusable에 전달:
 ### 거대 PR 처리 — 4단계 폴백
 
 | 모드 | 조건 | 동작 |
-|------|------|------|
+| --- | --- | --- |
 | **`full`** | diff 토큰 ≤ budget | 전체 diff 본문 포함 분석 |
 | **`truncated`** | diff 토큰 > budget, 일부 patch 들어감 | 변경량 큰 파일부터 patch 포함, 나머지는 메타만 (LLM에 명시) |
 | **`metadata-only`** | 헤더만으로도 budget 초과 | PR 메타·파일 목록·commit 메시지만 사용 |
@@ -478,7 +484,7 @@ caller workflow에서 reusable에 전달:
 PR 한 건 처리당 평균 비용:
 
 | 시나리오 | 흐름 | 예상 비용 |
-|---------|------|----------|
+| --- | --- | --- |
 | **SKIP** (단순 PR) | judge만 호출 | ~$0.005 |
 | **PASS** (의미 있는 PR) | judge + matcher + builder + merger | ~$0.05~$0.15 |
 | **거대 PR (메타데이터 모드)** | 동일하지만 입력 토큰 ↓ | ~$0.03~$0.08 |
@@ -493,6 +499,7 @@ PASS:  30 × $0.10  = $3.00
 ```
 
 **비용 절감 메커니즘:**
+
 - 가벼운 모델 1차 게이트 (해당 PR의 50% 이상 조기 종료 기대)
 - Anthropic prompt caching (입력 토큰 ~90% 할인)
 - exclude_patterns로 노이즈 제거 (lock file·테스트·스토리 등)
@@ -589,7 +596,7 @@ pnpm test:watch           # 워치 모드
 
 ## 새 레포에 적용하기
 
-[`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) 참고. 요약:
+[`docs/SETUP_GUIDE.md`](https://www.notion.so/docs/SETUP_GUIDE.md) 참고. 요약:
 
 1. vault 레포 생성 → 첫 commit으로 main 브랜치 만들기
 2. vault 쓰기 권한 PAT 발급
@@ -603,7 +610,7 @@ pnpm test:watch           # 워치 모드
 ## 트러블슈팅
 
 | 증상 | 원인·해결 |
-|---|---|
+| --- | --- |
 | `repository not found` (curate workflow의 checkout 단계) | track-record가 private인데 caller가 토큰 없이 checkout. → public으로 두거나 PAT 추가 |
 | `Not Found - create-or-update-file-contents` (vault push 시) | **vault 빈 레포** → default branch 없음. 첫 commit으로 `README.md` 추가 후 재시도 |
 | `403 Resource not accessible by integration` | TARGET_TOKEN 권한 부족. PAT 발급 시 Contents: Read and write + Resource owner: vault 소유자 확인 |
