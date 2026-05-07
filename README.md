@@ -180,7 +180,7 @@ flowchart TD
 
 | 단계 | 역할 | 모델 | 출력 |
 | --- | --- | --- | --- |
-| **① Threshold Judge** | 이력서감 1차 판정 | haiku-4.5 (가벼움) | `{ pass, category, reason }` |
+| **① Threshold Judge** | 가치있는 업무인지 1차 판정 | haiku-4.5 (가벼움) | `{ pass, category, reason }` |
 | **② Skill Matcher** | 베스트 프랙티스 스킬 매칭 | haiku-4.5 | `{ skills: [...] }` |
 | **③ Entry Builder** | 4문장 STAR entry 작성 | sonnet-4.6 (강함) | `{ category, headline, metaLine, body }` |
 | **④ Entry Merger** | 기존 vault md와 통합 판단 | sonnet-4.6 | `{ action, updatedMarkdown, reason }` |
