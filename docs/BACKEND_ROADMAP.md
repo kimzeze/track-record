@@ -59,14 +59,12 @@ Track Record를 백엔드(Python Django/DRF 우선 → Spring → Go) 에서도 
 - [x] `prompts/curator/entry-builder.md` 카테고리 예시 보강 — 백엔드 도메인 추가
   - `Performance > Query Optimization`, `Performance > Caching` (백엔드 관점), `Architecture > Service Layer`, `Architecture > Domain Boundary`, `Reliability > Idempotency`, `Reliability > Migration Safety`, `Security > AuthZ`, `Quality > Contract Testing`
 - [x] `prompts/curator/threshold-judge.md` 의 "테크 깊이/임팩트" 예시에 백엔드 케이스 한두 줄 추가 (예: "N+1 제거로 list endpoint p95 320ms → 90ms", "schema-vs-data migration 분리로 무중단 적용")
-- [ ] `caller-templates/track-record-caller-python.yml` 신규 — Django 레포가 복사할 변종
-  - `exclude_patterns` 기본값: `poetry.lock,Pipfile.lock,*_test.py,tests/**,conftest.py,migrations/*.py` (단, migration 자체를 평가 대상에 넣고 싶으면 빼야 — 주석으로 명시)
-  - 트리거 branch: 조직 컨벤션 따라 `dev` 또는 `main`
-- [ ] 단위 테스트 추가
-  - `prioritizeFiles` 가 Python 파일 패턴에서도 결정적인지 (`__init__.py` 동순위 시 path asc 정렬)
-  - `diff-parser` 토큰 추정에 Python 키워드가 영향 없는지 (현재 char 단위 추정이라 영향 없음 — 확인만)
-- [ ] `pnpm typecheck && pnpm build && pnpm test` 통과
-- [ ] 실제 Django 레포 1곳에 caller 추가 → PR 1건 머지로 e2e 검증
+- [x] `caller-templates/track-record-caller-python.yml` 신규 — Django 레포가 복사할 변종
+  - `exclude_patterns` 기본값: `poetry.lock,Pipfile.lock,uv.lock,*_test.py,tests/**,conftest.py` (migration 은 의도적으로 포함 — 안전성 평가 시그널)
+  - 트리거 branch: `dev` 명시 (필요 시 사용자가 `main` 으로 교체)
+- [x] 단위 테스트 추가 — Skip. `prioritizeFiles`/`diff-parser`는 언어 무관 동작이라 Python 케이스 추가의 실질적 의미 없음으로 판단
+- [x] `pnpm typecheck && pnpm build && pnpm test` 통과 (PR 1·2·3 모두 검증)
+- [ ] 실제 Django 레포 1곳에 caller 추가 → PR 1건 머지로 e2e 검증 — 별도 세션
   - PASS 케이스 1개 (의미 있는 변경)
   - SKIP 케이스 1개 (lint/typo)
   - 생성된 entry 가 STAR 4문장 형식·메타라인 포맷 통과하는지 육안 검증
