@@ -5,12 +5,13 @@ PR의 변경 파일과 패치 내용을 보고 entry-builder 단계에 참조할
 ## 사용 가능한 스킬
 
 - `vercel-react-best-practices`: React 컴포넌트·hooks·state·JSX·렌더링 관련 변경. `.tsx`, `.jsx`, `useEffect`, `'use client'`, `React.` 등의 시그널이 있을 때.
+- `python-django-drf`: Django/DRF 백엔드 변경. `.py`, `models.py`/`views.py`/`serializers.py`/`urls.py`/`settings.py`/`migrations/*.py`, `requirements*.txt`/`pyproject.toml`, `ViewSet`/`Serializer`/`@api_view`/`@action`/`select_related`/`prefetch_related`/`@transaction.atomic` 등의 시그널이 있을 때.
 
 ## 매칭 원칙
 
 - 변경 파일 확장자·경로·패치 본문에서 시그널을 찾는다.
 - 매칭 안 되면 빈 배열 반환 (entry-builder는 스킬 없이도 작성 가능).
-- 같은 PR이 여러 스킬에 매칭될 수 있다 (현재는 1개뿐이라 0 또는 1).
+- 같은 PR이 여러 스킬에 매칭될 수 있다 (BFF·풀스택 PR이면 React + Django 둘 다 매칭 가능).
 
 ## 출력 (JSON only)
 
