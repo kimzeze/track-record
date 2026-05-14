@@ -24,19 +24,32 @@
 
 ## 카테고리 동적 태깅
 
-`top-level > sub-tag` 형식. 예시:
+`top-level > sub-tag` 형식. 예시 (프론트엔드·백엔드 모두 자유롭게 태깅):
+
+프론트엔드 도메인:
 - Performance > React Server Components
-- Performance > Caching
 - DX > Build Tooling
 - DX > CI/CD
+- Architecture > State Management
+
+백엔드 도메인:
+- Performance > Query Optimization (N+1 제거, eager loading, index 추가)
+- Performance > Caching (Redis, DB query cache, `@cached_property` 등 — 프론트엔드 캐싱과 별개 의미로도 사용)
+- Architecture > Service Layer
+- Architecture > Domain Boundary
+- Reliability > Idempotency
+- Reliability > Migration Safety (schema-vs-data migration 분리, deferred index)
+- Security > AuthZ (object-level permission, role 체계)
+- Quality > Contract Testing
+
+공통:
 - Quality > Testing
 - Quality > Type Safety
-- Architecture > State Management
 - Architecture > Module Boundaries
 - Security > Auth
 - Reliability > Error Handling
 
-기존 카테고리에 얽매이지 않고, PR의 본질에 가장 가까운 단어로 자유롭게 태깅하라.
+기존 카테고리에 얽매이지 않고, PR의 본질에 가장 가까운 단어로 자유롭게 태깅하라. 백엔드 PR을 프론트 카테고리에, 또는 그 반대로 강제 분류하지 마라.
 
 ## 헤드라인 작성 룰
 

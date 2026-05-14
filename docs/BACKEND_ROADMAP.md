@@ -56,9 +56,9 @@ Track Record를 백엔드(Python Django/DRF 우선 → Spring → Go) 에서도 
   - entry 작성 시 활용 섹션: 위 어휘를 STAR 본문의 "결정" 문장에 자연스럽게 녹이는 가이드
 - [x] `prompts/curator/skill-matcher.md` 의 "사용 가능한 스킬" 에 `python-django-drf` 항목 추가
   - 매칭 시그널: `*.py`, `models.py`, `views.py`, `serializers.py`, `migrations/*.py`, `urls.py`, `settings.py`, `requirements*.txt`, `pyproject.toml`, DRF `ViewSet`/`Serializer`/`@action` 문자열
-- [ ] `prompts/curator/entry-builder.md` 카테고리 예시 보강 — 백엔드 도메인 추가
+- [x] `prompts/curator/entry-builder.md` 카테고리 예시 보강 — 백엔드 도메인 추가
   - `Performance > Query Optimization`, `Performance > Caching` (백엔드 관점), `Architecture > Service Layer`, `Architecture > Domain Boundary`, `Reliability > Idempotency`, `Reliability > Migration Safety`, `Security > AuthZ`, `Quality > Contract Testing`
-- [ ] `prompts/curator/threshold-judge.md` 의 "테크 깊이/임팩트" 예시에 백엔드 케이스 한두 줄 추가 (예: "N+1 제거로 list endpoint p95 320ms → 90ms", "schema-vs-data migration 분리로 무중단 적용")
+- [x] `prompts/curator/threshold-judge.md` 의 "테크 깊이/임팩트" 예시에 백엔드 케이스 한두 줄 추가 (예: "N+1 제거로 list endpoint p95 320ms → 90ms", "schema-vs-data migration 분리로 무중단 적용")
 - [ ] `caller-templates/track-record-caller-python.yml` 신규 — Django 레포가 복사할 변종
   - `exclude_patterns` 기본값: `poetry.lock,Pipfile.lock,*_test.py,tests/**,conftest.py,migrations/*.py` (단, migration 자체를 평가 대상에 넣고 싶으면 빼야 — 주석으로 명시)
   - 트리거 branch: 조직 컨벤션 따라 `dev` 또는 `main`
