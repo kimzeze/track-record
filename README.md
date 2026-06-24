@@ -8,22 +8,27 @@ flowchart LR
     PR[PR closed<br/>+ merged] --> Judge{AI<br/>Judge}
     Judge -->|SKIP| SkipSlack[💬 Slack skip]
     Judge -->|PASS| Build[AI<br/>Build]
-    Build --> Merge[AI<br/>Merge]
-    Merge --> Vault[(📚 vault<br/>repo)]
-    Merge --> Slack[💬 Slack pass]
+    Build --> Append[코드<br/>append<br/>결정론]
+    Append --> Vault[(📚 vault<br/>repo)]
+    Append --> Slack[💬 Slack pass]
     Judge -.->|error| FailSlack[💬 Slack fail]
     Build -.->|error| FailSlack
-    Merge -.->|error| FailSlack
-    Vault -.->|error| FailSlack
+    Append -.->|error| FailSlack
+
+    Cron([주기적 cron]) --> Compact[AI<br/>Compaction<br/>중복 통합]
+    Compact --> Vault
 
     style Judge fill:#fbbf24,stroke:#b45309,color:#000
     style Build fill:#60a5fa,stroke:#1e40af,color:#fff
-    style Merge fill:#60a5fa,stroke:#1e40af,color:#fff
+    style Append fill:#34d399,stroke:#047857,color:#000
+    style Compact fill:#60a5fa,stroke:#1e40af,color:#fff
     style Vault fill:#22c55e,stroke:#15803d,color:#fff
     style Slack fill:#a855f7,stroke:#6b21a8,color:#fff
     style SkipSlack fill:#9ca3af,stroke:#4b5563,color:#fff
     style FailSlack fill:#ef4444,stroke:#991b1b,color:#fff
 ```
+
+> 핫패스(PR 적립)에서 파일 통합은 **코드가 결정론적으로** 수행합니다(LLM이 파일 전체를 다시 쓰지 않음 → 토큰 잘림·파싱 실패 없음). 비슷한 주제의 **중복 통합은 주기적 컴팩션**(별도 cron)이 담당합니다.
 
 > **새 레포에 적용하려면?** [`docs/SETUP_GUIDE.md`](https://www.notion.so/docs/SETUP_GUIDE.md)를 참고하세요. AI 어시스턴트에게 이 파일을 제공하면 셋업을 도와줍니다.
 > 
@@ -65,7 +70,7 @@ Track Record는 **PR 머지 시점에 그 서사가 가장 fresh할 때 자동�
 - 사람은 평소처럼 코드 짜고 PR 머지만 합니다
 - AI가 자율적으로 판단해 통과한 작업만 적립합니다
 - 통과한 작업은 4문장 STAR 형식(문제 · 결정 · 결과 · 학습)으로 응축되어 vault에 누적됩니다
-- 비슷한 주제는 자동으로 통합·보강합니다
+- 비슷한 주제는 주기적 컴팩션이 자동으로 통합·보강합니다
 
 ### 참고한 것들
 
@@ -85,13 +90,15 @@ Track Record는 **PR 머지 시점에 그 서사가 가장 fresh할 때 자동�
    ├── PASS → 다음 단계
    └── SKIP → Slack 알림 후 종료 (비용 절감)
 5. AI Skill Matcher가 변경 파일에서 베스트 프랙티스 매칭한다
-6. AI Entry Builder가 4문장 STAR entry를 작성한다 (강한 모델)
-7. AI Entry Merger가 기존 vault entry와 비교한다
-   ├── 유사 주제 → 기존 블록 보강 (metric 통합)
-   ├── 새 주제   → 새 블록 append
-   └── 첫 엔트리 → fresh 작성
-8. vault repo의 {username}/{project}.md 에 push한다
+6. AI Entry Builder가 4문장 STAR entry를 작성한다 (강한 모델, entry 1개만 → 출력 bounded)
+7. 코드가 기존 {username}/{project}.md를 결정론적으로 파싱해 새 entry를 append한다
+   ├── 카테고리 매칭 → 그 아래 삽입
+   ├── 새 카테고리 → 알파벳 순으로 생성·삽입
+   └── 이미 적립된 PR# → 멱등 스킵 (LLM 호출 0)
+8. vault repo의 {username}/{project}.md 에 push한다 (동시성 안전: 충돌 시 최신본에 재적용)
 9. Slack 알림 전송 (PASS/SKIP 모두)
+
+별도로, 주기적 컴팩션(cron)이 vault를 순회하며 같은 카테고리의 중복 entry를 통합한다 (핫패스와 분리 — 실패해도 데이터 무손상).
 ```
 
 ---
@@ -146,31 +153,36 @@ flowchart LR
 
 ---
 
-## 큐레이터 4단계 파이프라인
+## 큐레이터 파이프라인 (핫패스 + 컴팩션)
+
+핫패스는 LLM 3단계(judge·match·build) + **코드 결정론 append**로 구성됩니다. LLM은 entry 1개만 만들고, 파일 통합은 코드가 합니다 → 출력이 이력 크기와 무관하게 항상 bounded.
 
 ```mermaid
 flowchart TD
     PR[PR Context<br/>diff + 메타]
-    Judge[① Threshold Judge<br/>haiku-4.5 · ~$0.005]
+    Read[vault-read<br/>+ PR# 멱등 가드]
+    Judge[① Threshold Judge<br/>haiku-4.5]
     Match[② Skill Matcher<br/>haiku-4.5]
-    Build[③ Entry Builder<br/>sonnet-4.6 · ~$0.05]
-    Merge[④ Entry Merger<br/>sonnet-4.6 · ~$0.03]
+    Build[③ Entry Builder<br/>sonnet-4.6]
+    Append[④ Append<br/>코드 · 결정론 · $0]
     Vault[(📚 vault push)]
     SlackPass[💬 Slack pass]
     SlackSkip[💬 Slack skip]
 
-    PR --> Judge
+    PR --> Read
+    Read -->|이미 적립| SkipDone[멱등 종료]
+    Read --> Judge
     Judge -->|PASS| Match
     Judge -->|SKIP| SlackSkip
     Match --> Build
-    Build --> Merge
-    Merge --> Vault
-    Merge --> SlackPass
+    Build --> Append
+    Append --> Vault
+    Append --> SlackPass
 
     style Judge fill:#fbbf24,stroke:#b45309,color:#000
     style Match fill:#fbbf24,stroke:#b45309,color:#000
     style Build fill:#60a5fa,stroke:#1e40af,color:#fff
-    style Merge fill:#60a5fa,stroke:#1e40af,color:#fff
+    style Append fill:#34d399,stroke:#047857,color:#000
     style Vault fill:#22c55e,stroke:#15803d,color:#fff
     style SlackPass fill:#a855f7,stroke:#6b21a8,color:#fff
     style SlackSkip fill:#9ca3af,stroke:#4b5563,color:#fff
@@ -178,21 +190,22 @@ flowchart TD
 
 ### 단계별 책임
 
-| 단계 | 역할 | 모델 | 출력 |
+| 단계 | 역할 | 모델/방식 | 출력 |
 | --- | --- | --- | --- |
-| **① Threshold Judge** | 가치있는 업무인지 1차 판정 | haiku-4.5 (가벼움) | `{ pass, category, reason }` |
+| **① Threshold Judge** | 이력 가치 있는 업무인지 1차 판정 | haiku-4.5 (가벼움) | `{ pass, category, reason }` |
 | **② Skill Matcher** | 베스트 프랙티스 스킬 매칭 | haiku-4.5 | `{ skills: [...] }` |
 | **③ Entry Builder** | 4문장 STAR entry 작성 | sonnet-4.6 (강함) | `{ category, headline, metaLine, body }` |
-| **④ Entry Merger** | 기존 vault md와 통합 판단 | sonnet-4.6 | `{ action, updatedMarkdown, reason }` |
+| **④ Append** | 파싱·삽입·정렬·직렬화 | **코드(결정론, LLM 아님)** | 갱신된 .md (bounded) |
+| **컴팩션** (주기적) | 같은 카테고리 중복 통합 | sonnet-4.6 · cron | 통합된 .md |
 
 ### 임계 통과 기준
 
-`prompts/curator/threshold-judge.md`가 다음 기준으로 PASS/SKIP을 결정:
+`prompts/curator/threshold-judge.md`가 **"1년 뒤 이력서·면접에서 말할 거리가 되는가"**를 north star로 PASS/SKIP을 결정:
 
-- **테크 깊이** — 패턴·아키텍처·라이브러리의 깊이 있는 사용, 추상화 수준, 비자명한 트레이드오프 결정
-- **임팩트** — 정량 수치(성능·번들·CI 시간 등), 사용자 영향, 버그 규모, 비용 절감
+- **PASS** — 솔루션·기능 구현·아키텍처 결정·테크 깊이·정량 임팩트 (의사결정·해결의 깊이가 핵심, 변경 크기 아님)
+- **SKIP** — prettier·포맷팅·순수 스타일링(색/여백)·rename·주석·typo·단순 dependency bump·설정 미세조정·WIP/임시 PR
 
-**둘 중 하나라도 강하면 PASS**, 둘 다 약하면 SKIP. 단순 dependency bump, lint·format·typo 수정, 빈 description은 자동 SKIP.
+같은 영역도 "체계·결정"이면 PASS(디자인 시스템 도입), "표면 조정"이면 SKIP(색 하나 변경).
 
 ### 모델 계단으로 비용 절감
 
@@ -239,8 +252,8 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 ```
 ┌──────────────────────────────────────────────┐
 │  Layer 1: Curator 프롬프트 (필수)               │  prompts/curator/{stage}.md
-│  → 4단계 각 역할/룰 (범용)                       │  threshold-judge / skill-matcher
-│                                              │  entry-builder / entry-merger
+│  → 각 역할/룰 (범용)                            │  threshold-judge / skill-matcher
+│                                              │  entry-builder / compactor
 ├──────────────────────────────────────────────┤
 │  Layer 2: Stack 프롬프트 (선택, 복수)            │  prompts/stacks/{name}.md
 │  → 매칭된 베스트 프랙티스 (Entry Builder만)        │  Skill Matcher가 동적 선택
@@ -254,7 +267,7 @@ system prompt는 **단계별 프롬프트 + 매칭된 스킬**을 동적으로 �
 | **Curator** | `curator/threshold-judge.md` | PASS/SKIP 판정 기준 |
 |  | `curator/skill-matcher.md` | 변경 파일 → 스킬 매칭 룰 |
 |  | `curator/entry-builder.md` | 4문장 STAR 작성 가이드 |
-|  | `curator/entry-merger.md` | 기존 entry와 통합 판단 |
+|  | `curator/compactor.md` | 주기적 컴팩션 시 중복 통합 판단 |
 | **Stack** | `stacks/vercel-react-best-practices.md` | React 컴포넌트·hook·렌더링 (시작 셋) |
 
 ### 새 베스트 프랙티스 추가
@@ -368,7 +381,7 @@ vault entry · PR
 workflow run · PR
 ```
 
-가능한 단계 라벨: `init / fetch-pr / judge / match / build / vault-init / vault-read / merge / vault-write / slack-pass`.
+가능한 단계 라벨: `init / fetch-pr / vault-read / judge / match / build / vault-init / vault-append / slack-pass`.
 
 webhook 미등록이면 알림 없이 silent skip됩니다 (비용·동작 영향 없음).
 
@@ -461,10 +474,14 @@ caller workflow에서 reusable에 전달:
 | Input | 필수 | 기본값 | 설명 |
 | --- | --- | --- | --- |
 | `target_repo` | **필수** | — | vault 레포 (`owner/repo` 형식) |
-| `model_judge` | 선택 | `claude-haiku-4-5` | 1차 판정 모델 (가벼운 게 권장) |
-| `model_builder` | 선택 | `claude-sonnet-4-6` | entry 작성·머지 모델 |
-| `diff_token_budget` | 선택 | `80000` | 초과 시 메타데이터 모드로 폴백 |
+| `model_judge` | 선택 | `claude-haiku-4-5` | judge·match 모델 (가벼운 게 권장) |
+| `model_builder` | 선택 | `claude-sonnet-4-6` | entry 작성 모델 |
+| `diff_token_budget` | 선택 | `80000` | 초과 시 truncated/metadata 모드로 폴백 |
 | `exclude_patterns` | 선택 | `""` | 분석 제외 패턴 (콤마 구분) |
+| `max_changed_files` | 선택 | `400` | 초과하는 거대 PR은 LLM 호출 전 스킵 (비용 보호) |
+| `max_run_cost_usd` | 선택 | `0.5` | PR 1건 누적 비용 상한. 초과 시 중단 (백스톱) |
+
+컴팩션(주기 정리)은 별도 워크플로우입니다 — `caller-templates/track-record-compact-caller.yml`(cron) 참고. 옵션: `min_entries`(기본 6), `max_entries_per_category`(30), `max_file_tokens`(30000), `max_run_cost_usd`(3).
 
 ### 거대 PR 처리 — 4단계 폴백
 
@@ -486,28 +503,30 @@ PR 한 건 처리당 평균 비용:
 | 시나리오 | 흐름 | 예상 비용 |
 | --- | --- | --- |
 | **SKIP** (단순 PR) | judge만 호출 | ~$0.005 |
-| **PASS** (의미 있는 PR) | judge + matcher + builder + merger | ~$0.05~$0.15 |
-| **거대 PR (메타데이터 모드)** | 동일하지만 입력 토큰 ↓ | ~$0.03~$0.08 |
+| **재실행 / 거대 PR** | 멱등 스킵 또는 LLM 호출 전 스킵 | ~$0 |
+| **PASS** (의미 있는 PR) | judge + matcher + builder + **결정론 append(LLM 0)** | ~$0.03~$0.12 |
+
+> 이전 구조는 PASS에 merge LLM(파일 전체 재생성)이 있어 이력이 쌓일수록 비용이 커지고 잘림 장애가 났습니다. 이제 append가 코드라 **PASS 비용이 이력 크기와 무관(O(diff))**합니다.
 
 월 100건 머지 가정 (PASS 30%, SKIP 70%):
 
 ```
 SKIP:  70 × $0.005 = $0.35
-PASS:  30 × $0.10  = $3.00
+PASS:  30 × $0.08  = $2.40
 ─────────────────────────
-월 합계:           ~$3.35
+월 합계:           ~$2.75  (+ 주간 컴팩션 별도, 상한 제한)
 ```
 
-**비용 절감 메커니즘:**
+**비용 절감·보호 메커니즘:**
 
-- 가벼운 모델 1차 게이트 (해당 PR의 50% 이상 조기 종료 기대)
-- Anthropic prompt caching (입력 토큰 ~90% 할인)
-- exclude_patterns로 노이즈 제거 (lock file·테스트·스토리 등)
-- diff 토큰 예산 + truncated/metadata 폴백
+- 가벼운 모델 1차 게이트 + 강화된 큐레이션(스타일링·포맷팅 조기 SKIP → 비싼 build 안 돎)
+- merge LLM 제거 → PASS 비용 O(diff)로 bounded, 잘림 장애 소멸
+- PR# 멱등 가드 (재실행 시 LLM 0) + `max_changed_files` 사전 스킵 + `max_run_cost_usd` 백스톱
+- Anthropic prompt caching (입력 토큰 ~90% 할인), exclude_patterns, diff 토큰 예산 + 폴백
 
 ### 비용 자동 추적
 
-매 실행마다 4번의 LLM 호출 `usage` 응답을 누적해 **실제 사용 비용을 산출**하고, Slack 알림(PASS/SKIP/FAIL 모두) 컨텍스트 라인에 표시합니다. 가격 테이블은 `src/anthropic/usage.ts` 의 `MODEL_PRICING` 에 2026-05-06 기준 [Anthropic 공식가](https://platform.claude.com/docs/en/about-claude/pricing) 가 박혀 있고, 모델 ID는 longest-prefix 매칭으로 자동 인식됩니다. 매칭 실패 시 비용은 0달러로 처리되며 `WARN` 로그가 남습니다.
+매 실행의 LLM 호출 `usage` 응답을 누적해 **실제 사용 비용을 산출**하고, Slack 알림(PASS/SKIP/FAIL 모두) 컨텍스트 라인에 표시합니다. 가격 테이블은 `src/anthropic/usage.ts` 의 `MODEL_PRICING` 에 2026-05-06 기준 [Anthropic 공식가](https://platform.claude.com/docs/en/about-claude/pricing) 가 박혀 있고, 모델 ID는 longest-prefix 매칭으로 자동 인식됩니다. 매칭 실패 시 비용은 0달러로 처리되며 `WARN` 로그가 남습니다.
 
 ---
 
@@ -519,33 +538,37 @@ track-record/
 │   ├── ISSUE_TEMPLATE/
 │   ├── pull_request_template.md
 │   └── workflows/
-│       └── curate.yml                          ← reusable workflow (Executor)
+│       ├── curate.yml                          ← 핫패스 reusable workflow (PR당)
+│       └── compact.yml                         ← 컴팩션 reusable workflow (cron)
 ├── caller-templates/
-│   └── track-record-caller.yml                 ← 대상 레포가 복사하는 템플릿
+│   ├── track-record-caller.yml                 ← 대상 레포가 복사 (PR 트리거)
+│   └── track-record-compact-caller.yml         ← vault/ops 레포가 복사 (스케줄)
 ├── docs/
 │   ├── SETUP_GUIDE.md                          ← 셋업 절차 상세
 │   └── PROMPT_GUIDE.md                         ← 프롬프트 수정 가이드
 ├── prompts/
-│   ├── curator/                                ← 4단계 큐레이터 프롬프트
+│   ├── curator/                                ← 큐레이터 프롬프트
 │   │   ├── threshold-judge.md
 │   │   ├── skill-matcher.md
 │   │   ├── entry-builder.md
-│   │   └── entry-merger.md
+│   │   └── compactor.md                        ← 주기적 중복 통합
 │   └── stacks/                                 ← 베스트 프랙티스 마크다운
 │       └── vercel-react-best-practices.md
 ├── src/
-│   ├── index.ts                                ← 진입점 + main catch
+│   ├── index.ts                                ← 핫패스 진입점 + main catch
+│   ├── compact.ts                              ← 컴팩션 진입점
 │   ├── pipeline/
-│   │   ├── index.ts                            ← 4단계 오케스트레이션 + stage tracking
+│   │   ├── index.ts                            ← 핫패스 오케스트레이션 + stage tracking
 │   │   └── stages.ts                           ← Stage 타입 + 에러에 stage attach
-│   ├── config/                                 ← env 로딩 + zod 검증
+│   ├── compaction/index.ts                     ← vault 순회 + 카테고리 통합
+│   ├── config/                                 ← env 로딩 + zod 검증 (핫패스/컴팩션)
 │   ├── anthropic/                              ← SDK 래퍼 + JSON 호출 + caching
 │   │   ├── client.ts
 │   │   ├── json-call.ts                        ← tracker 자동 record
 │   │   └── usage.ts                            ← MODEL_PRICING + UsageTracker
 │   ├── github/                                 ← octokit + diff parser + PR fetch
-│   ├── curator/                                ← 4단계 핸들러 (TS)
-│   ├── vault/                                  ← vault 읽기·쓰기·초기화
+│   ├── curator/                                ← judge·match·build·compactor 핸들러 (TS)
+│   ├── vault/                                  ← 읽기·쓰기·초기화 + parser(파싱·직렬화·append)
 │   ├── slack/                                  ← PASS/SKIP/FAIL webhook 모듈
 │   └── utils/logger.ts
 ├── package.json
@@ -569,7 +592,7 @@ track-record/
 ```bash
 pnpm install              # 의존성 설치
 pnpm typecheck            # TypeScript 타입 체크
-pnpm build                # tsup 단일 번들 빌드 → dist/index.js
+pnpm build                # tsup 번들 빌드 → dist/index.js (핫패스) + dist/compact.js (컴팩션)
 pnpm test                 # vitest 단위 테스트
 pnpm test:watch           # 워치 모드
 ```
@@ -583,11 +606,13 @@ pnpm test:watch           # 워치 모드
 
 ### 단위 테스트
 
-현재 32개 테스트가 핵심 유틸을 검증:
+현재 53개 테스트가 핵심 로직을 검증:
 
+- `parser.test.ts` — vault 파싱·직렬화 라운드트립·멱등·append·PR# 멱등성
+- `compactor.test.ts` — metaLine 합치기·applyMerges 결정론 통합
 - `diff-parser.test.ts` — 토큰 추정·glob 매칭·`prioritizeFiles` 우선순위 알고리즘
 - `path-resolver.test.ts` — vault 경로 sanitize
-- `json-call.test.ts` — JSON 추출 (raw / 코드펜스 / 산문 혼합 / 스키마 위반)
+- `json-call.test.ts` — JSON 추출 (raw / 코드펜스 / 임베디드 펜스 / 산문 혼합 / 스키마 위반)
 - `usage.test.ts` — 가격 매칭 (longest-prefix), 비용 계산, `UsageTracker` 누적
 
 새 큐레이터 단계나 매칭 로직 추가 시 단위 테스트도 같이 추가.
