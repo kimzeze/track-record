@@ -43,7 +43,3 @@ export async function buildEntry(
     tracker,
   });
 }
-
-export function builtEntryToMarkdown(entry: BuiltEntry): string {
-  return `## ${entry.category}\n### ${entry.headline}\n${entry.metaLine}\n\n${entry.body}\n`;
-}

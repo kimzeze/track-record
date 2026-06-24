@@ -9,13 +9,13 @@ export const promptPaths = {
   thresholdJudge: "prompts/curator/threshold-judge.md",
   skillMatcher: "prompts/curator/skill-matcher.md",
   entryBuilder: "prompts/curator/entry-builder.md",
-  entryMerger: "prompts/curator/entry-merger.md",
+  compactor: "prompts/curator/compactor.md",
 } as const;
 
 export const prompts = {
   thresholdJudge: () => load(promptPaths.thresholdJudge),
   skillMatcher: () => load(promptPaths.skillMatcher),
   entryBuilder: () => load(promptPaths.entryBuilder),
-  entryMerger: () => load(promptPaths.entryMerger),
+  compactor: () => load(promptPaths.compactor),
   stack: (name: string) => load(`prompts/stacks/${name}.md`),
 };

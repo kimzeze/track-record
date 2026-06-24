@@ -41,6 +41,21 @@ describe("callJsonModel", () => {
     expect(result).toEqual({ pass: false, reason: "skip" });
   });
 
+  it("본문에 ``` 코드펜스가 끼어 있어도 파싱 (그리디 매칭)", async () => {
+    const client = fakeClient(
+      '```json\n{"pass": true, "reason": "예시 ```ts\\nconst x = {}\\n``` 포함"}\n```',
+    );
+    const result = await callJsonModel({
+      client,
+      model: "test",
+      system: [],
+      userText: "x",
+      schema: sampleSchema,
+    });
+    expect(result.pass).toBe(true);
+    expect(result.reason).toContain("```ts");
+  });
+
   it("앞뒤 산문 + JSON 파싱", async () => {
     const client = fakeClient('판정 결과:\n{"pass": true, "reason": "go"}\n끝.');
     const result = await callJsonModel({

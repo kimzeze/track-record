@@ -27,6 +27,16 @@ on:
         required: false
         type: string
         default: ""
+      max_changed_files:
+        description: "변경 파일 수가 이 값 초과면 LLM 호출 전 스킵 (비용 보호)"
+        required: false
+        type: number
+        default: 400
+      max_run_cost_usd:
+        description: "PR 1건 처리 누적 비용 상한(USD). 초과 시 중단"
+        required: false
+        type: string
+        default: "0.5"
     secrets:
       ANTHROPIC_API_KEY:
         required: true
@@ -94,5 +104,7 @@ jobs:
           MODEL_BUILDER: ${{ inputs.model_builder }}
           DIFF_TOKEN_BUDGET: ${{ inputs.diff_token_budget }}
           EXCLUDE_PATTERNS: ${{ inputs.exclude_patterns }}
+          MAX_CHANGED_FILES: ${{ inputs.max_changed_files }}
+          MAX_RUN_COST_USD: ${{ inputs.max_run_cost_usd }}
           TARGET_REPO_PATH: ${{ github.workspace }}/target
         run: node dist/index.js
