@@ -143,6 +143,6 @@ senior-reviewer와 동일 패턴:
 | vault repo 초기화 | 첫 push 시 README + 폴더 + 사람별 인덱스 자동 생성 |
 | 거대 PR 토큰 전략 | 토큰 예산 80k 기본 + 4단계 폴백 (정상 → 메타데이터 모드 → skip) |
 | vault 인증 | PAT 단일 옵션 (`TARGET_TOKEN` secret) |
-| 모델 계단 | judge=haiku-4.5, builder/merger=sonnet-4.6 (caller가 `model_judge`/`model_builder` input으로 오버라이드 가능) |
+| 모델 계단 | judge/match=haiku-4.5, builder/compactor=sonnet-4.6 (caller가 `model_judge`/`model_builder` input으로 오버라이드 가능). 핫패스 머지는 LLM이 아닌 결정론 코드(`src/vault/parser.ts`) |
 | Anthropic prompt caching | system prompt + 베스트 프랙티스 마크다운에 cache_control 적용 |
 | senior-reviewer와 관계 | 독립 레포 유지 (트리거·출력·관점·권한 모두 다름, 합쳐도 비용 절감 없음) |

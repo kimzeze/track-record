@@ -10,7 +10,7 @@ prompts/
 │   ├── threshold-judge.md     # 1차 통과/skip 판정
 │   ├── skill-matcher.md       # 변경 파일 → 베스트 프랙티스 매칭
 │   ├── entry-builder.md       # 4문장 STAR entry 작성
-│   └── entry-merger.md        # 기존 .md와 머지/append 결정
+│   └── compactor.md           # 주기적 컴팩션 시 중복 통합 판단
 └── stacks/
     └── vercel-react-best-practices.md   # entry-builder 단계 참조
 ```
@@ -22,10 +22,12 @@ prompts/
 | `curator/threshold-judge.md` | `src/curator/threshold-judge.ts` | judge (haiku-4.5) |
 | `curator/skill-matcher.md` | `src/curator/skill-matcher.ts` | judge (haiku-4.5) |
 | `curator/entry-builder.md` | `src/curator/entry-builder.ts` | builder (sonnet-4.6) |
-| `curator/entry-merger.md` | `src/curator/entry-merger.ts` | builder (sonnet-4.6) |
+| `curator/compactor.md` | `src/curator/compactor.ts` | compactor (sonnet-4.6, cron) |
 | `stacks/{name}.md` | `entry-builder` 의 system blocks 에 inline 임베드 | — |
 
-## 출력 규약 (4단계 모두 공통)
+> 핫패스의 파일 통합(append)은 LLM이 아니라 `src/vault/parser.ts`(결정론 코드)가 한다 — 프롬프트 없음.
+
+## 출력 규약 (LLM 단계 공통)
 
 **JSON only.** 코드펜스(\`\`\`json ... \`\`\`)는 허용, 그 외 산문 금지. zod 스키마 위반 시 throw.
 
