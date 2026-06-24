@@ -1,0 +1,91 @@
+name: Track Record Compaction
+
+# vault 의 누적 entry를 주기적으로 정리(중복 통합)한다. 핫패스(PR 적립)와 분리된 별도 잡.
+# schedule 은 호출하는 caller 쪽에 둔다 (caller-templates/track-record-compact-caller.yml 참고).
+
+on:
+  workflow_call:
+    inputs:
+      target_repo:
+        description: "vault repo (예: aptimizer-co/track-record-vault)"
+        required: true
+        type: string
+      model_compactor:
+        description: "컴팩션(중복 통합) 모델"
+        required: false
+        type: string
+        default: "claude-sonnet-4-6"
+      min_entries:
+        description: "이 수 미만 entry의 카테고리는 통합 시도 안 함"
+        required: false
+        type: number
+        default: 6
+      max_entries_per_category:
+        description: "이 수 초과 카테고리는 스킵 (출력 bounded 유지)"
+        required: false
+        type: number
+        default: 30
+      max_file_tokens:
+        description: "이 토큰 초과 파일은 스킵 (비용 보호)"
+        required: false
+        type: number
+        default: 30000
+      max_run_cost_usd:
+        description: "이 런 누적 비용 상한(USD). 도달 시 남은 파일 보류"
+        required: false
+        type: string
+        default: "3"
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+      TARGET_TOKEN:
+        description: "vault repo write 권한 PAT"
+        required: true
+      SLACK_WEBHOOK_URL:
+        required: false
+
+jobs:
+  compact:
+    name: "Track Record Compact"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout track-record
+        uses: actions/checkout@v4
+        with:
+          repository: kimzeze/track-record
+          ref: main
+          path: curator
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        working-directory: curator
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: curator
+        run: pnpm build
+
+      - name: Run Compaction
+        working-directory: curator
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TARGET_REPO: ${{ inputs.target_repo }}
+          MODEL_COMPACTOR: ${{ inputs.model_compactor }}
+          COMPACT_MIN_ENTRIES: ${{ inputs.min_entries }}
+          COMPACT_MAX_ENTRIES_PER_CATEGORY: ${{ inputs.max_entries_per_category }}
+          COMPACT_MAX_FILE_TOKENS: ${{ inputs.max_file_tokens }}
+          COMPACT_MAX_RUN_COST_USD: ${{ inputs.max_run_cost_usd }}
+        run: node dist/compact.js

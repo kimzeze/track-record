@@ -1,0 +1,24 @@
+# vault 정리(컴팩션)를 주기적으로 돌리는 스케줄러.
+# 아무 레포(보통 vault 레포 자신 또는 ops 레포)의 .github/workflows/ 에 복사하세요.
+# 필요한 시크릿: ANTHROPIC_API_KEY, TARGET_TOKEN
+
+name: Track Record Compaction
+
+on:
+  schedule:
+    - cron: "0 18 * * 0" # 매주 일요일 18:00 UTC (월요일 새벽 03:00 KST)
+  workflow_dispatch: {} # 수동 실행 버튼
+
+jobs:
+  compact:
+    uses: kimzeze/track-record/.github/workflows/compact.yml@main
+    with:
+      target_repo: "aptimizer-co/track-record-vault"
+      # 옵션 — 기본값 쓰려면 생략
+      # model_compactor: "claude-sonnet-4-6"
+      # min_entries: 6
+      # max_run_cost_usd: "3"
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TARGET_TOKEN: ${{ secrets.TARGET_TOKEN }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
