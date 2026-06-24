@@ -1,13 +1,12 @@
 export const STAGES = [
   "init",
   "fetch-pr",
+  "vault-read",
   "judge",
   "match",
   "build",
   "vault-init",
-  "vault-read",
-  "merge",
-  "vault-write",
+  "vault-append",
   "slack-pass",
 ] as const;
 

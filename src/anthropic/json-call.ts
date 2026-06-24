@@ -41,7 +41,8 @@ export async function callJsonModel<T>(opts: JsonCallOptions<T>): Promise<T> {
 }
 
 function extractJson(text: string): unknown {
-  const fence = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+  // 그리디(+): 닫는 펜스를 "마지막" ``` 으로 잡아, 본문에 끼어든 코드펜스가 캡처를 끊지 않게 한다.
+  const fence = text.match(/```(?:json)?\s*([\s\S]+)\s*```/);
   const candidate = fence?.[1] ?? text;
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
