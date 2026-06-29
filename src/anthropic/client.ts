@@ -4,7 +4,9 @@ let cached: Anthropic | undefined;
 
 export function getAnthropic(apiKey: string): Anthropic {
   if (!cached) {
-    cached = new Anthropic({ apiKey });
+    // 재시도는 앱 레벨(callJsonModel)이 단독 소유 → SDK 재시도 비활성(maxRetries: 0).
+    // timeout: 멈춘 소켓이 SDK 기본 10분을 잡지 않게 60초로 단축, 초과 시 앱 재시도로 복구.
+    cached = new Anthropic({ apiKey, maxRetries: 0, timeout: 60_000 });
   }
   return cached;
 }
